@@ -6,6 +6,17 @@ A native C++17 / OpenGL 3.3 application for Windows. Explore all eight planets, 
 
 ![System overview](docs/screenshots/overview.png)
 
+## Project team
+
+Solar System Explorer was developed as a Computer Graphics Fundamentals project through the active contributions of four team members:
+
+- **Abai Erik**
+- **Ulnaz Seitzhan**
+- **Nurbolat Zhumadulla**
+- **Nurasyl Adildabek**
+
+Together, the team invested time, effort, and collaboration in bringing this interactive Solar System to life.
+
 ## Start here
 
 If you have the portable Windows distribution, extract the **whole ZIP** and open `SolarSystemExplorer.exe`. Keep the `assets`, `shaders` and `licenses` folders beside it. Nothing needs to be downloaded at runtime. The native C/C++ runtime and project libraries are linked statically; Windows system graphics libraries and a working OpenGL driver are still required.
