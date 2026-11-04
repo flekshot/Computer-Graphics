@@ -1,0 +1,56 @@
+# CMake and compiled output
+build/
+build-*/
+cmake-build/
+cmake-build-*/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+Testing/
+
+# Compiler and linker artifacts
+*.exe
+*.dll
+*.pdb
+*.obj
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.ilk
+*.pch
+
+# IDE and user-specific settings
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+CMakeUserPresets.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Local OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Packaged downloads and generated verification data
+*.zip
+*.7z
+*.tar
+*.gz
+/SHA256SUMS.txt
+/SolarSystemExplorer-Windows-x64/
+/SolarSystemExplorer/docs/verification/

@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 24, "patch": 0},
+  "configurePresets": [
+    {"name": "vs2022", "displayName": "Visual Studio 2022 x64", "generator": "Visual Studio 17 2022", "architecture": "x64", "binaryDir": "${sourceDir}/build/vs2022", "cacheVariables": {"SSE_BUILD_TESTS": "ON"}},
+    {"name": "vs2026", "displayName": "Visual Studio 2026 x64", "generator": "Visual Studio 18 2026", "architecture": "x64", "binaryDir": "${sourceDir}/build/vs2026", "cacheVariables": {"SSE_BUILD_TESTS": "ON"}}
+  ],
+  "buildPresets": [
+    {"name": "release", "configurePreset": "vs2022", "configuration": "Release"},
+    {"name": "release-vs2026", "configurePreset": "vs2026", "configuration": "Release"}
+  ],
+  "testPresets": [
+    {"name": "release", "configurePreset": "vs2022", "configuration": "Release", "output": {"outputOnFailure": true}},
+    {"name": "release-vs2026", "configurePreset": "vs2026", "configuration": "Release", "output": {"outputOnFailure": true}}
+  ]
+}

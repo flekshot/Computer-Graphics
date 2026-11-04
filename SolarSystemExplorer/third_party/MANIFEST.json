@@ -1,0 +1,27 @@
+{
+  "glfw": {
+    "version": "3.4",
+    "source": "https://github.com/glfw/glfw/tree/3.4",
+    "license": "zlib/libpng"
+  },
+  "glm": {
+    "version": "1.0.1",
+    "source": "https://github.com/g-truc/glm/tree/1.0.1",
+    "license": "MIT option"
+  },
+  "glew": {
+    "version": "2.2.0",
+    "source": "https://github.com/Perlmint/glew-cmake/tree/glew-cmake-2.2.0",
+    "license": "GLEW/Mesa/Khronos notices"
+  },
+  "imgui": {
+    "version": "1.91.9b",
+    "source": "https://github.com/ocornut/imgui/tree/v1.91.9b",
+    "license": "MIT"
+  },
+  "stb": {
+    "commit": "a7d4c2175630e1ea5b6f8dd00ab96fed0b97b96d",
+    "source": "https://github.com/nothings/stb",
+    "license": "MIT option"
+  }
+}
