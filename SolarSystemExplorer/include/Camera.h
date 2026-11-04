@@ -10,7 +10,7 @@ class Camera {
     void zoom(float wheel);
     void pan(float right, float forward, float dt);
     void avoidSphere(const glm::vec3& center, float radius);
-    void setViewport(float width, float height, bool panels);
+    void setViewport(float width, float height, bool panels, float sceneRadius = 60.0f);
     glm::mat4 view() const;
     glm::mat4 projection(float aspect) const;
     glm::vec3 position() const;
@@ -23,6 +23,7 @@ class Camera {
     float yaw_ = 0.62f, pitch_ = 0.64f, targetYaw_ = 0.62f, targetPitch_ = 0.64f;
     float distance_ = 158, targetDistance_ = 158, minDistance_ = 4;
     float overviewDistance_ = 158, projectionShift_ = 0;
+    float maxDistance_ = 360;
     int followed_ = -1;
 };
 } // namespace sse

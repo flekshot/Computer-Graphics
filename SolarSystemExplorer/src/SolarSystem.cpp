@@ -127,10 +127,55 @@ SolarSystem::SolarSystem()
                   15,
                   49244,
                   4495.1,
-                  {0.27f, 0.43f, 0.97f}})} {}
+                  {0.27f, 0.43f, 0.97f}})} {
+    for (const auto& planet : planets_)
+        defaultOrbits_.push_back(planet.orbitParameters());
+}
 void SolarSystem::setSpeed(float multiplier) {
     if (std::isfinite(multiplier))
         speed_ = std::clamp(multiplier, 0.05f, 100.0f);
+}
+bool SolarSystem::setOrbit(size_t index, const OrbitParameters& orbit, std::string& error) {
+    if (index >= planets_.size())
+        error = "Choose one of the eight planets.";
+    else if (!std::isfinite(orbit.semiMajorAxis) || !std::isfinite(orbit.eccentricity) ||
+             !std::isfinite(orbit.inclinationDegrees) || !std::isfinite(orbit.periodDays) ||
+             !std::isfinite(orbit.phaseDegrees))
+        error = "All orbit parameters must be finite numbers.";
+    else if (orbit.semiMajorAxis < 6 || orbit.semiMajorAxis > 180)
+        error = "Semi-major axis must be between 6 and 180 scene units.";
+    else if (orbit.eccentricity < 0 || orbit.eccentricity > 0.85)
+        error = "Eccentricity must be between 0 and 0.85.";
+    else if (orbit.inclinationDegrees < -60 || orbit.inclinationDegrees > 60)
+        error = "Inclination must be between -60 and 60 degrees.";
+    else if (orbit.periodDays < 5 || orbit.periodDays > 200000)
+        error = "Period must be between 5 and 200000 days.";
+    else if (orbit.phaseDegrees < -3600 || orbit.phaseDegrees > 3600)
+        error = "Phase must be between -3600 and 3600 degrees.";
+    else if (orbit.semiMajorAxis * (1.0 - orbit.eccentricity) <=
+             static_cast<double>(sunRadius) + planets_[index].data().radius + 0.4)
+        error = "Periapsis must leave the planet outside the Sun with 0.4 units of clearance.";
+    else {
+        planets_[index].setOrbit(orbit);
+        error.clear();
+        return true;
+    }
+    return false;
+}
+void SolarSystem::resetOrbits() {
+    for (size_t i = 0; i < planets_.size(); ++i)
+        planets_[i].setOrbit(defaultOrbits_[i]);
+}
+bool SolarSystem::isModified() const {
+    for (size_t i = 0; i < planets_.size(); ++i) {
+        const auto& a = planets_[i].orbitParameters();
+        const auto& b = defaultOrbits_[i];
+        if (a.semiMajorAxis != b.semiMajorAxis || a.eccentricity != b.eccentricity ||
+            a.inclinationDegrees != b.inclinationDegrees || a.periodDays != b.periodDays ||
+            a.phaseDegrees != b.phaseDegrees)
+            return true;
+    }
+    return false;
 }
 void SolarSystem::setDays(double days) {
     if (std::isfinite(days))

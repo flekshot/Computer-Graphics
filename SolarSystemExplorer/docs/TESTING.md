@@ -1,8 +1,32 @@
 # Verification report
 
+## Laboratory update — 2026-11-04
+
+Version **1.1.0** was built in the integrated workspace using **Visual Studio 2026 / MSVC 19.51**, Release configuration. The fresh integrated run passed **10 / 10 CTest tests**: the original seven tests plus three laboratory tests.
+
+```powershell
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
+```
+
+These commands refer to the workspace's `build` directory. With a named CMake preset, use its matching build and test presets instead.
+
+| Test group | Recorded result / coverage |
+| --- | --- |
+| Original seven tests | All passed: `core_behaviors`, `opengl_context`, `graphics_smoke`, `missing_textures`, `no_bloom`, `invalid_cli`, and `resource_recovery`. Core coverage remains 10,481 assertions. |
+| `orbit_and_persistence` | 345 assertions passed, covering elliptical position and velocity, orbital bounds/reset, experiment roundtrips, malformed data, and state preservation on failed loading. |
+| `eclipse_geometry` | 62 assertions passed, including alignment/occlusion cases and comparison of angular-circle overlap against numerical spherical-cap integration. |
+| `laboratory_smoke` | Completed the 240-frame integrated scenario through orbit editing, graphics modes, persistence, and eclipse views. |
+
+The default circular eight-planet behavior remains covered by the original suite. The new orbit tests check Keplerian ellipses and analytic velocity; the eclipse tests validate the illustrative occlusion model, not real-calendar eclipse predictions. Invalid experiment input is checked before it can replace live model/settings state.
+
+This update records the integrated **Release** build and automated checks. It does not claim a new Debug run, benchmark/FPS measurement, memory soak, or completed manual interaction with every native file-dialog path. Save/load model behavior and application integration are covered by the tests above; native picker interaction is a separate manual check. The older environment, native-window observations, benchmark, and memory measurements below apply to their original date and must not be read as new laboratory measurements.
+
+## Historical report — 2026-10-21
+
 Date: **2026-10-21**. These are results of actual local builds and executions, not predicted outcomes.
 
-## Environment
+### Environment
 
 - Windows 11 Pro x64, build 26200; installed Visual Studio Enterprise 2026, MSVC 19.51.36256.
 - CMake 4.4.3; Windows SDK 10.0.26100.0.
@@ -12,7 +36,7 @@ Date: **2026-10-21**. These are results of actual local builds and executions, n
 
 VS 2022 presets and CMake 3.24-compatible project configuration are supplied. The installed compiler is VS 2026; a VS 2022 build was not independently executed here. Windows 10, other GPUs, other drivers and remote desktop sessions were not separately tested.
 
-## Automated tests
+### Automated tests
 
 Run:
 
@@ -35,7 +59,7 @@ Both **Release and Debug** configurations were built and each passes **7 / 7 CTe
 
 The application drains and checks `glGetError()` after every rendered frame. The final verified render runs report **0 OpenGL errors**. GLEW's context-initialization probing errors are cleared immediately after `glewInit`, before scene setup.
 
-## Regression evidence
+### Regression evidence
 
 Three important problems were reproduced and fixed during development:
 
@@ -45,7 +69,7 @@ Three important problems were reproduced and fixed during development:
 
 Unicode relocation also failed before its fix with a Windows character-conversion exception. Paths now use the wide Windows entry point and UTF-8-aware resource APIs. The relocation test passes with all original textures loaded.
 
-## Visual and native-window checks
+### Visual and native-window checks
 
 Actual framebuffer captures were inspected for overview, Earth/Moon and Saturn. These are stored in `screenshots/`; they are outputs of the application, not concept renders. They show textured surfaces, visible illumination, solar glow, orbit lines, star field, labels, cloud/atmospheric layers and Saturn's ring transparency/shadow.
 
@@ -55,7 +79,7 @@ The visible native application was launched and observed around **144 FPS** with
 
 Further native automation was interrupted by external user input. Remaining checks therefore used the separate hidden integration build. A complete manual exercise of every mouse gesture and every keyboard shortcut, and an actual OS minimize/restore cycle, were not claimed. The zero-framebuffer guard is exercised directly in the renderer; the application's minimize branch was reviewed but not independently driven by the OS test.
 
-## Stress run and memory observations
+### Stress run and memory observations
 
 Command:
 
@@ -73,7 +97,7 @@ The hidden benchmark disables VSync and uses fixed simulation steps. This measur
 
 Process memory was sampled every approximately 200 ms. Private memory stabilized at about **333.5 MiB** in the final samples after an approximately **442.4 MiB** initialization peak. No unbounded growth was observed in this short run. This is not a formal CPU/GPU leak proof, a long soak test or a driver allocation audit. GPU ownership and constructor-unwinding paths were also checked in an independent read-only code review.
 
-## Acceptance mapping
+### Acceptance mapping
 
 | Required result | Implementation / evidence |
 |---|---|

@@ -117,11 +117,12 @@ void UIManager::begin() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
-UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSettings& settings, int selected) {
+UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSettings& settings, int selected,
+                          LabState& lab) {
     UIActions actions;
     const auto size = ImGui::GetIO().DisplaySize;
     const float left = size.x < 1200 ? 202.0f : 222.0f, right = size.x < 1200 ? 248.0f : 284.0f;
-    const float top = 76, bottom = 96;
+    const float top = 116, bottom = 96;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     panel("Top", {0, 0}, {size.x, top}, false);
     auto* draw = ImGui::GetWindowDrawList();
@@ -133,17 +134,52 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::TextUnformatted("Solar System Explorer");
     ImGui::PopFont();
     ImGui::SetCursorPosX(64);
-    ImGui::TextColored(muted, "AN INTERACTIVE ATLAS  /  COMPUTER GRAPHICS");
+    ImGui::TextColored(muted, "AN INTERACTIVE ATLAS  /  ORBIT & ECLIPSE LABS");
     ImGui::SetCursorPos({size.x - 326, 21});
-    ImGui::TextColored(system.paused() ? gold : cyan, system.paused() ? "PAUSED" : "SIMULATION LIVE");
+    const bool running = lab.view == LabView::Eclipse ? lab.eclipse.animate : !system.paused();
+    ImGui::TextColored(running ? cyan : gold, running ? "SIMULATION LIVE" : "PAUSED");
     ImGui::SameLine(0, 23);
     ImGui::TextColored(muted, "%.0f FPS", ImGui::GetIO().Framerate);
     ImGui::SameLine(0, 18);
     if (ImGui::SmallButton("H  Help"))
         help_ = !help_;
+    ImGui::SetCursorPos({20, 77});
+    auto mode = [&](const char* title, LabView view) {
+        const bool active = lab.view == view;
+        if (active)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.32f, 0.40f, 1));
+        if (ImGui::Button(title, {120, 29})) {
+            lab.view = view;
+            if (view == LabView::Orbit) {
+                if (selected < 0)
+                    actions.select = 3;
+                actions.reset = true;
+                settings.trails = settings.velocityVectors = settings.apsides = true;
+            }
+        }
+        if (active)
+            ImGui::PopStyleColor();
+    };
+    mode("Explore", LabView::Explore);
+    ImGui::SameLine();
+    mode("Orbit Lab", LabView::Orbit);
+    ImGui::SameLine();
+    mode("Eclipse Lab", LabView::Eclipse);
+    ImGui::SameLine(size.x - 392);
+    if (ImGui::Button("Save...", {102, 29}))
+        actions.saveExperiment = true;
+    ImGui::SameLine();
+    if (ImGui::Button("Load...", {102, 29}))
+        actions.loadExperiment = true;
+    ImGui::SameLine();
+    if (ImGui::Button("Reset experiment", {150, 29}))
+        actions.resetExperiment = true;
     ImGui::End();
     ImGui::PopStyleVar();
     panel("Destinations", {16, top + 16}, {left, size.y - top - bottom - 32});
+    if (lab.view == LabView::Eclipse) {
+        eclipseControls(lab.eclipse);
+    } else {
     eyebrow("EXPLORE THE SYSTEM");
     ImGui::Dummy({0, 6});
     if (ImGui::Selectable("00   Overview", selected < 0, 0, {0, 34}))
@@ -168,15 +204,21 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     }
     if (size.y >= 760) {
         rule();
-        ImGui::TextColored(muted, "8 planets   /   1 star");
+        ImGui::TextColored(system.isModified() ? gold : muted,
+                           system.isModified() ? "EXPERIMENT MODIFIED" : "8 planets   /   1 star");
         ImGui::PushTextWrapPos(0);
         ImGui::TextColored(muted, "Distances and sizes are scaled for exploration.");
         ImGui::PopTextWrapPos();
     }
+    }
     ImGui::End();
 
     panel("Object data", {size.x - right - 16, top + 16}, {right, size.y - top - bottom - 32});
-    if (selected >= 0) {
+    if (lab.view == LabView::Orbit) {
+        orbitPanel(system, settings, selected, actions);
+    } else if (lab.view == LabView::Eclipse) {
+        eclipseInfo(lab.eclipse, settings);
+    } else if (selected >= 0) {
         const auto& data = system.planets()[static_cast<size_t>(selected)].data();
         eyebrow(data.category.c_str());
         ImGui::Dummy({0, 6});
@@ -192,7 +234,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
             std::snprintf(value, sizeof(value), "%.1f million km", data.distanceMillionKm);
         else
             std::snprintf(value, sizeof(value), "%.2f billion km", data.distanceMillionKm / 1000);
-        fact("MEAN DISTANCE FROM SUN", value);
+        fact(system.isModified() ? "REFERENCE DISTANCE FROM SUN" : "MEAN DISTANCE FROM SUN", value);
         if (data.orbitalDays < 1000)
             std::snprintf(value, sizeof(value), "%.1f Earth days", data.orbitalDays);
         else
@@ -234,6 +276,19 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::End();
 
     panel("Flight controls", {16, size.y - bottom}, {size.x - 32, bottom - 16}, false);
+    if (lab.view == LabView::Eclipse) {
+        if (ImGui::Button(lab.eclipse.animate ? "Pause" : "Animate", {86, 32}))
+            lab.eclipse.animate = !lab.eclipse.animate;
+        ImGui::SameLine(0, 16);
+        ImGui::SetNextItemWidth(180);
+        ImGui::SliderFloat("deg / sec", &lab.eclipse.angularSpeed, 0, 30, "%.1f",
+                          ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SameLine(0, 20);
+        ImGui::Checkbox("Observer", &lab.eclipse.observerView);
+        ImGui::SameLine(0, 16);
+        ImGui::Checkbox("Shadow cones", &lab.eclipse.showCones);
+        ImGui::TextColored(muted, "SPACE  Pause / resume event     Adjust phase and inclination in the left panel");
+    } else {
     if (ImGui::Button(system.paused() ? "Resume" : "Pause", {86, 32}))
         system.setPaused(!system.paused());
     ImGui::SameLine(0, 16);
@@ -257,8 +312,10 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::TextColored(
         muted,
         "DRAG  Orbit     SCROLL  Zoom     WASD  Pan     1-8  Destination     SPACE  Pause     0  Overview");
+    }
     ImGui::End();
     helpWindow();
+    labMessage();
     return actions;
 }
 void UIManager::helpWindow() {
@@ -273,6 +330,9 @@ void UIManager::helpWindow() {
         ImGui::PushFont(heading_);
         ImGui::TextUnformatted("A universe at your fingertips");
         ImGui::PopFont();
+        rule();
+        ImGui::TextWrapped("Orbit Lab: edit trajectories, seek time, and inspect wireframe or world normals. "
+                           "Eclipse Lab: compare geometry and observer views. Save / Load stores the full experiment.");
         rule();
         if (ImGui::BeginTable("Shortcuts", 2, ImGuiTableFlags_RowBg)) {
             const char* controls[][2] = {{"Left mouse drag", "Orbit the camera"},
@@ -330,7 +390,7 @@ void UIManager::labels(const SolarSystem& system, const Camera& camera, int sele
         const bool labelLeft = box.x + box.w > right;
         if (labelLeft)
             box.x = p.x - pixelRadius - 12 - box.w;
-        if (box.x < left || box.x + box.w > right || box.y < 100 || box.y + box.h > size.y - 110)
+        if (box.x < left || box.x + box.w > right || box.y < 140 || box.y + box.h > size.y - 110)
             return;
         for (const auto& other : occupied)
             if (box.x < other.x + other.w && box.x + box.w > other.x && box.y < other.y + other.h &&

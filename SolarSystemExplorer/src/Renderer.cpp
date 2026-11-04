@@ -12,10 +12,31 @@
 #endif
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <stdexcept>
 namespace sse {
 namespace {
+constexpr size_t diagnosticCapacity = 2048;
+// The scene temporarily changes rasterization for its diagnostic views. Fullscreen
+// passes always use filled triangles, and callers keep their original raster state.
+class RasterState {
+  public:
+    RasterState() : scissor_(glIsEnabled(GL_SCISSOR_TEST)) {
+        glGetIntegerv(GL_POLYGON_MODE, polygon_);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDisable(GL_SCISSOR_TEST);
+    }
+    ~RasterState() {
+        glPolygonMode(GL_FRONT_AND_BACK, polygon_[0]);
+        if (scissor_)
+            glEnable(GL_SCISSOR_TEST);
+    }
+
+  private:
+    GLint polygon_[2]{};
+    GLboolean scissor_;
+};
 void allocateColor(GLuint id, int w, int h) {
     glBindTexture(GL_TEXTURE_2D, id);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
@@ -38,7 +59,9 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
       sky_(root / "shaders/fullscreen.vert", root / "shaders/sky.frag"),
       star_(root / "shaders/star.vert", root / "shaders/star.frag"),
       blur_(root / "shaders/fullscreen.vert", root / "shaders/blur.frag"),
-      composite_(root / "shaders/fullscreen.vert", root / "shaders/composite.frag"), sphere_(makeSphere()),
+      composite_(root / "shaders/fullscreen.vert", root / "shaders/composite.frag"),
+      debugSurface_(root / "shaders/planet.vert", root / "shaders/debug_surface.frag"),
+      debugLines_(root / "shaders/debug_lines.vert", root / "shaders/debug_lines.frag"), sphere_(makeSphere()),
       annulus_(makeAnnulus(1.25f, 2.3f)), orbitMesh_(makeOrbit(), GL_LINE_LOOP),
       stars_(makeStars(), GL_POINTS),
       sunMap_(root / (forceFallback ? "missing/sun" : "assets/textures/sun.jpg"), "Sun"),
@@ -57,12 +80,25 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
     for (const Texture* t : {&sunMap_, &moonMap_, &ringMap_, &nightMap_, &cloudMap_, &skyMap_})
         if (t->fallback())
             ++fallbackCount_;
+    diagnosticVertices_.reserve(diagnosticCapacity);
+    glBindVertexArray(diagnosticVao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, diagnosticVbo_.id());
+    glBufferData(GL_ARRAY_BUFFER, diagnosticCapacity * sizeof(DiagnosticVertex), nullptr, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DiagnosticVertex),
+                          reinterpret_cast<void*>(offsetof(DiagnosticVertex, position)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(DiagnosticVertex),
+                          reinterpret_cast<void*>(offsetof(DiagnosticVertex, color)));
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glEnable(GL_PROGRAM_POINT_SIZE);
     std::cout << "Scene initialized: 8 planets, Moon, Saturn rings, 4500 stars; " << fallbackCount_
               << " texture fallbacks\n";
 }
 void Renderer::resize(int width, int height) {
-    if (width <= 0 || height <= 0 || (width == width_ && height == height_))
+    drawable_ = width > 0 && height > 0;
+    if (!drawable_ || (width == width_ && height == height_))
         return;
     width_ = width;
     height_ = height;
@@ -106,10 +142,113 @@ void Renderer::atmosphere(const glm::mat4& model, const glm::mat4& vp, const glm
     atmosphere_.set("uSun", int(sun));
     sphere_.draw();
 }
+void Renderer::diagnostics(const SolarSystem& system, const glm::mat4& vp, const glm::vec3& eye,
+                           const RenderSettings& settings, int selected) {
+    if (selected < 0 || static_cast<size_t>(selected) >= system.planets().size())
+        return;
+    const auto& planet = system.planets()[static_cast<size_t>(selected)];
+    const auto& orbit = planet.orbitParameters();
+    const double days = system.days();
+    const float radius = planet.data().radius;
+    diagnosticVertices_.clear();
+    const auto line = [this](const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) {
+        diagnosticVertices_.push_back({from, color});
+        diagnosticVertices_.push_back({to, color});
+    };
+    if (settings.trails) {
+        // Sample recent simulation time rather than frame history: seeking, pausing,
+        // loading and orbit edits cannot leave stale points from another trajectory.
+        constexpr int samples = 192;
+        const double span = orbit.periodDays * 0.22;
+        const glm::vec3 color = glm::mix(planet.data().color, glm::vec3(0.5f, 0.9f, 1.0f), 0.6f);
+        glm::vec3 previous = planet.position(days - span);
+        for (int i = 1; i <= samples; ++i) {
+            const float t = static_cast<float>(i) / samples;
+            const auto next = planet.position(days - span * (1.0 - static_cast<double>(i) / samples));
+            diagnosticVertices_.push_back({previous, glm::vec4(color, 0.06f + 0.94f * (t - 1.0f / samples))});
+            diagnosticVertices_.push_back({next, glm::vec4(color, 0.06f + 0.94f * t)});
+            previous = next;
+        }
+    }
+    if (settings.velocityVectors) {
+        const glm::vec3 velocity = planet.velocity(days);
+        const float speed = glm::length(velocity);
+        if (std::isfinite(speed) && speed > 1e-8f) {
+            const glm::vec3 position = planet.position(days), direction = velocity / speed;
+            // A fixed fraction of the orbit's mean-motion timescale makes velocity
+            // legible in scene units while retaining its variation around the ellipse.
+            const float length = std::clamp(static_cast<float>(speed * orbit.periodDays * 0.045),
+                                            radius * 2.2f, 18.0f);
+            const glm::vec3 tip = position + direction * length;
+            glm::vec3 side = glm::cross(direction, eye - tip);
+            if (glm::dot(side, side) < 1e-8f)
+                side = glm::cross(direction, glm::vec3(0, 1, 0));
+            if (glm::dot(side, side) < 1e-8f)
+                side = glm::cross(direction, glm::vec3(0, 0, 1));
+            side = glm::normalize(side);
+            const float head = std::min(length * 0.25f, std::max(0.45f, radius * 0.8f));
+            const glm::vec4 color(0.25f, 1.0f, 0.68f, 1.0f);
+            line(position, tip, color);
+            line(tip, tip - direction * head + side * head * 0.48f, color);
+            line(tip, tip - direction * head - side * head * 0.48f, color);
+        }
+    }
+    if (settings.apsides) {
+        const auto plane = glm::rotate(glm::mat4(1), glm::radians(static_cast<float>(orbit.inclinationDegrees)),
+                                        glm::vec3(0, 0, 1));
+        const glm::vec3 axis = glm::vec3(plane * glm::vec4(1, 0, 0, 0));
+        const glm::vec3 across = glm::vec3(plane * glm::vec4(0, 0, 1, 0));
+        const float size = std::max(0.6f, radius * 1.35f);
+        const auto marker = [&](const glm::vec3& center, const glm::vec4& color) {
+            const glm::vec3 a = center + axis * size, b = center + across * size,
+                            c = center - axis * size, d = center - across * size;
+            line(a, b, color);
+            line(b, c, color);
+            line(c, d, color);
+            line(d, a, color);
+            line(center - axis * size * 0.35f, center + axis * size * 0.35f, color);
+            line(center - across * size * 0.35f, center + across * size * 0.35f, color);
+        };
+        marker(axis * static_cast<float>(planet.periapsis()), {0.25f, 1.0f, 0.68f, 1.0f});
+        marker(-axis * static_cast<float>(planet.apoapsis()), {1.0f, 0.48f, 0.25f, 1.0f});
+    }
+    if (settings.surfaceMode == SurfaceMode::Normals) {
+        const auto model = planet.modelMatrix(days);
+        const auto normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+        const auto glyph = [&](const glm::vec3& local) {
+            const glm::vec3 normal = glm::normalize(normalMatrix * local);
+            const glm::vec3 start = glm::vec3(model * glm::vec4(local * 1.003f, 1));
+            line(start, start + normal * radius * 0.28f, glm::vec4(normal * 0.5f + 0.5f, 1));
+        };
+        for (int latitude = -60; latitude <= 60; latitude += 30) {
+            const float theta = glm::radians(static_cast<float>(latitude));
+            for (int longitude = 0; longitude < 12; ++longitude) {
+                const float phi = glm::radians(longitude * 30.0f + (latitude == 0 ? 15.0f : 0.0f));
+                glyph({std::cos(theta) * std::cos(phi), std::sin(theta), std::cos(theta) * std::sin(phi)});
+            }
+        }
+        glyph({0, 1, 0});
+        glyph({0, -1, 0});
+    }
+    if (diagnosticVertices_.empty())
+        return;
+    debugLines_.use();
+    debugLines_.set("uVP", vp);
+    glBindVertexArray(diagnosticVao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, diagnosticVbo_.id());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, diagnosticVertices_.size() * sizeof(DiagnosticVertex),
+                    diagnosticVertices_.data());
+    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(diagnosticVertices_.size()));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
 void Renderer::render(const SolarSystem& system, const Camera& camera, const RenderSettings& settings,
                       int selected, float realTime) {
-    if (width_ <= 0 || height_ <= 0)
+    if (!drawable_)
         return;
+    const RasterState rasterState;
+    const bool shaded = settings.surfaceMode == SurfaceMode::Shaded;
+    const bool wireframe = settings.surfaceMode == SurfaceMode::Wireframe;
+    const glm::vec3 lighting(settings.ambient, settings.diffuse, settings.specular);
     const auto view = camera.view(), projection = camera.projection(float(width_) / height_),
                vp = projection * view;
     const auto skyVP = projection * glm::mat4(glm::mat3(view));
@@ -148,41 +287,65 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         glm::rotate(glm::mat4(1), static_cast<float>(std::remainder(days / 1500.0, 1.0) * 6.2831853),
                     glm::vec3(0, 1, 0)) *
         glm::scale(glm::mat4(1), glm::vec3(SolarSystem::sunRadius));
-    sun_.use();
-    sun_.set("uModel", sunModel);
-    sun_.set("uVP", vp);
-    sun_.set("uEye", eye);
-    sun_.set("uTime", realTime);
-    sun_.set("uSurface", 0);
-    sunMap_.bind();
+    if (wireframe)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    if (shaded) {
+        sun_.use();
+        sun_.set("uModel", sunModel);
+        sun_.set("uVP", vp);
+        sun_.set("uEye", eye);
+        sun_.set("uTime", realTime);
+        sun_.set("uSurface", 0);
+        sunMap_.bind();
+    } else {
+        debugSurface_.use();
+        debugSurface_.set("uVP", vp);
+        debugSurface_.set("uModel", sunModel);
+        debugSurface_.set("uNormals", int(settings.surfaceMode == SurfaceMode::Normals));
+        debugSurface_.set("uColor", glm::vec3(1.0f, 0.75f, 0.3f));
+    }
     sphere_.draw();
-    planet_.use();
-    planet_.set("uVP", vp);
-    planet_.set("uEye", eye);
-    planet_.set("uSurface", 0);
-    planet_.set("uNight", 1);
-    planet_.set("uRing", 2);
-    planet_.set("uClouds", 0);
-    nightMap_.bind(1);
-    ringMap_.bind(2);
+    if (shaded) {
+        planet_.use();
+        planet_.set("uVP", vp);
+        planet_.set("uEye", eye);
+        planet_.set("uSurface", 0);
+        planet_.set("uNight", 1);
+        planet_.set("uRing", 2);
+        planet_.set("uClouds", 0);
+        planet_.set("uLighting", lighting);
+        nightMap_.bind(1);
+        ringMap_.bind(2);
+    }
     for (size_t i = 0; i < system.planets().size(); ++i) {
         const auto& p = system.planets()[i];
-        planet_.set("uModel", p.modelMatrix(days));
-        planet_.set("uEarth", int(i == 2));
-        planet_.set("uRingShadow", int(i == 5));
-        if (i == 5) {
-            planet_.set("uBodyCenter", p.position(days));
-            planet_.set("uRadius", p.data().radius);
-            planet_.set("uRingNormal", glm::vec3(p.equatorialFrame(days) * glm::vec4(0, 1, 0, 0)));
+        if (shaded) {
+            planet_.set("uModel", p.modelMatrix(days));
+            planet_.set("uEarth", int(i == 2));
+            planet_.set("uRingShadow", int(i == 5));
+            if (i == 5) {
+                planet_.set("uBodyCenter", p.position(days));
+                planet_.set("uRadius", p.data().radius);
+                planet_.set("uRingNormal", glm::vec3(p.equatorialFrame(days) * glm::vec4(0, 1, 0, 0)));
+            }
+            surfaces_[i].bind();
+        } else {
+            debugSurface_.set("uModel", p.modelMatrix(days));
+            debugSurface_.set("uColor", glm::mix(p.data().color, glm::vec3(1), 0.3f));
         }
-        surfaces_[i].bind();
         sphere_.draw();
     }
-    planet_.set("uEarth", 0);
-    planet_.set("uRingShadow", 0);
-    planet_.set("uModel", system.moonModel(days));
-    moonMap_.bind();
+    if (shaded) {
+        planet_.set("uEarth", 0);
+        planet_.set("uRingShadow", 0);
+        planet_.set("uModel", system.moonModel(days));
+        moonMap_.bind();
+    } else {
+        debugSurface_.set("uModel", system.moonModel(days));
+        debugSurface_.set("uColor", glm::vec3(0.75f));
+    }
     sphere_.draw();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
@@ -191,12 +354,16 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         orbit_.set("uVP", vp);
         for (size_t i = 0; i < system.planets().size(); ++i) {
             const auto& p = system.planets()[i];
+            const auto& parameters = p.orbitParameters();
+            const float a = static_cast<float>(parameters.semiMajorAxis);
+            const float e = static_cast<float>(parameters.eccentricity);
             const bool chosen = static_cast<int>(i) == selected;
             orbit_.set("uColor", chosen ? p.data().color * 0.65f : glm::vec3(0.09f, 0.15f, 0.21f));
             orbit_.set("uAlpha", chosen ? 0.9f : 0.5f);
-            orbit_.set("uModel", glm::rotate(glm::mat4(1), glm::radians(p.data().inclinationDegrees),
+            orbit_.set("uModel", glm::rotate(glm::mat4(1), glm::radians(static_cast<float>(parameters.inclinationDegrees)),
                                              glm::vec3(0, 0, 1)) *
-                                     glm::scale(glm::mat4(1), glm::vec3(p.data().orbitRadius)));
+                                     glm::translate(glm::mat4(1), glm::vec3(-a * e, 0, 0)) *
+                                     glm::scale(glm::mat4(1), glm::vec3(a, 1, a * std::sqrt(1 - e * e))));
             orbitMesh_.draw();
         }
         orbit_.set("uColor", glm::vec3(0.2f, 0.33f, 0.48f));
@@ -208,30 +375,46 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     // Transparent annulus: opaque planet depth masks the hidden half; draw both faces.
     glDisable(GL_CULL_FACE);
     const auto& saturn = system.planets()[5];
-    ring_.use();
-    ring_.set("uVP", vp);
-    ring_.set("uModel",
-              saturn.equatorialFrame(days) * glm::scale(glm::mat4(1), glm::vec3(saturn.data().radius)));
-    ring_.set("uCenter", saturn.position(days));
-    ring_.set("uRadius", saturn.data().radius);
-    ring_.set("uRing", 0);
-    ringMap_.bind();
+    const auto ringModel = saturn.equatorialFrame(days) * glm::scale(glm::mat4(1), glm::vec3(saturn.data().radius));
+    if (shaded) {
+        ring_.use();
+        ring_.set("uVP", vp);
+        ring_.set("uModel", ringModel);
+        ring_.set("uCenter", saturn.position(days));
+        ring_.set("uRadius", saturn.data().radius);
+        ring_.set("uRing", 0);
+        ring_.set("uLighting", lighting);
+        ringMap_.bind();
+    } else {
+        debugSurface_.use();
+        debugSurface_.set("uModel", ringModel);
+        debugSurface_.set("uColor", glm::vec3(0.78f, 0.68f, 0.5f));
+    }
+    if (wireframe)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     annulus_.draw();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_CULL_FACE);
-    const auto& earth = system.planets()[2];
-    planet_.use();
-    planet_.set("uModel",
-                earth.modelMatrix(days) *
-                    glm::rotate(glm::mat4(1), float(std::remainder(days / 1000.0, 1.0)), glm::vec3(0, 1, 0)) *
-                    glm::scale(glm::mat4(1), glm::vec3(1.012f)));
-    planet_.set("uClouds", 1);
-    cloudMap_.bind();
-    sphere_.draw();
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    atmosphere(earth.modelMatrix(days) * glm::scale(glm::mat4(1), glm::vec3(1.055f)), vp, eye,
-               {0.12f, 0.48f, 1.5f}, 0.82f, false);
-    atmosphere(sunModel * glm::scale(glm::mat4(1), glm::vec3(1.12f)), vp, eye, {2.0f, 0.55f, 0.08f}, 0.48f,
-               true);
+    if (shaded) {
+        // Cloud and atmosphere shells are omitted in diagnostic modes so that
+        // overlapping shells do not obscure topology or the surface normals.
+        const auto& earth = system.planets()[2];
+        planet_.use();
+        planet_.set("uModel",
+                    earth.modelMatrix(days) *
+                        glm::rotate(glm::mat4(1), float(std::remainder(days / 1000.0, 1.0)), glm::vec3(0, 1, 0)) *
+                        glm::scale(glm::mat4(1), glm::vec3(1.012f)));
+        planet_.set("uClouds", 1);
+        cloudMap_.bind();
+        sphere_.draw();
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        atmosphere(earth.modelMatrix(days) * glm::scale(glm::mat4(1), glm::vec3(1.055f)), vp, eye,
+                   {0.12f, 0.48f, 1.5f}, 0.82f, false);
+        atmosphere(sunModel * glm::scale(glm::mat4(1), glm::vec3(1.12f)), vp, eye, {2.0f, 0.55f, 0.08f}, 0.48f,
+                   true);
+    }
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    diagnostics(system, vp, eye, settings, selected);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
