@@ -47,13 +47,22 @@ bool sameRender(const sse::RenderSettings& a, const sse::RenderSettings& b) {
            a.diffuse == b.diffuse && a.specular == b.specular && a.trails == b.trails &&
            a.velocityVectors == b.velocityVectors && a.apsides == b.apsides;
 }
+bool sameWorkshop(const sse::WorkshopSettings& a, const sse::WorkshopSettings& b) {
+    return a.kind == b.kind && a.seed == b.seed && a.radius == b.radius && a.relief == b.relief &&
+           a.featureScale == b.featureScale && a.seaLevel == b.seaLevel && a.iceCap == b.iceCap &&
+           a.clouds == b.clouds && a.atmosphere == b.atmosphere && a.rotationDegrees == b.rotationDegrees &&
+           a.rotationSpeed == b.rotationSpeed && a.animate == b.animate && a.gasBands == b.gasBands &&
+           a.gasTurbulence == b.gasTurbulence && a.landColor == b.landColor && a.waterColor == b.waterColor &&
+           a.atmosphereColor == b.atmosphereColor && a.gasColorA == b.gasColorA && a.gasColorB == b.gasColorB;
+}
 bool sameLab(const sse::LabState& a, const sse::LabState& b) {
     const auto& x = a.eclipse;
     const auto& y = b.eclipse;
     return a.view == b.view && x.lunar == y.lunar && x.animate == y.animate &&
            x.showCones == y.showCones && x.observerView == y.observerView &&
            x.phaseDegrees == y.phaseDegrees && x.inclinationDegrees == y.inclinationDegrees &&
-           x.angularSpeed == y.angularSpeed;
+           x.angularSpeed == y.angularSpeed && sameWorkshop(a.workshop, b.workshop) &&
+           a.missions.active == b.missions.active && a.missions.completed == b.missions.completed;
 }
 struct TemporaryDirectory {
     std::filesystem::path path;
@@ -207,11 +216,24 @@ void testPersistence() {
     render.ambient = 0.1234567f; render.diffuse = 2.2345678f; render.specular = 0.3456789f;
     render.trails = true; render.velocityVectors = true; render.apsides = true;
     sse::LabState lab;
-    lab.view = sse::LabView::Eclipse;
+    lab.view = sse::LabView::Workshop;
     lab.eclipse = {true, true, false, true, -123.4567f, -12.34567f, 24.56789f};
+    auto& world = lab.workshop;
+    world.kind = sse::WorkshopKind::Gas;
+    world.seed = 999999; world.radius = 2.1234567f; world.relief = 0.2345678f; world.featureScale = 10.12345f;
+    world.seaLevel = 0.654321f; world.iceCap = 0.345678f; world.clouds = 0.765432f; world.atmosphere = 0.876543f;
+    world.rotationDegrees = -3456.789f; world.rotationSpeed = -12.34567f; world.animate = false;
+    world.gasBands = 23; world.gasTurbulence = 0.789123f;
+    world.landColor = {0.1234567f, 0.2345678f, 0.3456789f};
+    world.waterColor = {0.4567891f, 0.5678912f, 0.6789123f};
+    world.atmosphereColor = {0.7891234f, 0.8912345f, 0.9123456f};
+    world.gasColorA = {0.1122334f, 0.2233445f, 0.3344556f};
+    world.gasColorB = {0.4455667f, 0.5566778f, 0.6677889f};
+    lab.missions.active = 4; lab.missions.completed = {true, false, true, false, true};
     check(sse::saveExperiment(file, source, render, lab, 6, error), "Unicode experiment path must save");
     check(error.empty(), "Successful saving must clear any previous error");
     const auto valid = read(file);
+    check(valid.rfind("SSELAB 2\n", 0) == 0, "Saves must advertise the version 2 format");
     sse::SolarSystem loaded;
     sse::RenderSettings loadedRender;
     sse::LabState loadedLab;
@@ -233,12 +255,12 @@ void testPersistence() {
               "A failed load must not partially mutate any live experiment state");
     };
     rejected("");
-    rejected(replaceOnce(valid, "SSELAB 1", "SSELAB 99"));
+    rejected(replaceOnce(valid, "SSELAB 2", "SSELAB 99"));
     rejected(valid.substr(0, valid.size() / 2));
     rejected(valid + "unexpected trailing data\n");
     rejected(replaceOnce(valid, "orbits 8", "orbits 9"));
     rejected(replaceOnce(valid, "orbit 7 ", "orbit 6 "));
-    rejected(replaceOnce(valid, "lab 2", "lab 3"));
+    rejected(replaceOnce(valid, "lab 3", "lab 4"));
     rejected(replaceOnce(valid, "render 0 0 0 ", "render 2 0 0 "));
     rejected(replaceOnce(valid, "eclipse 1 1 0 1 ", "eclipse 1 1 -1 1 "));
     rejected(replaceOnce(valid, "orbit 7 37.25", "orbit 7 nan"));
@@ -266,11 +288,45 @@ void testPersistence() {
         rejected(changeField(valid, "eclipse", 7, value));
     for (size_t field : {2u, 3u, 4u, 5u, 6u})
         rejected(changeField(valid, "orbit 7", field, "nan"));
+    rejected(changeField(valid, "workshop", 1, "2"));
+    for (const auto& value : {"-1", "1000000", "4294967296"})
+        rejected(changeField(valid, "workshop", 2, value));
+    const std::array<std::pair<const char*, const char*>, 11> invalidRanges{{
+        {"0.49", "3.01"}, {"-0.01", "0.251"}, {"0.99", "12.01"}, {"-0.01", "1.01"},
+        {"-0.01", "0.601"}, {"-0.01", "1.01"}, {"-0.01", "1.01"},
+        {"-3601", "3601"}, {"-45.01", "45.01"}, {"2", "25"}, {"-0.01", "1.01"}}};
+    for (size_t i = 0; i < invalidRanges.size(); ++i) {
+        const size_t field = i < 9 ? i + 3 : i + 4;
+        for (const auto& value : {invalidRanges[i].first, invalidRanges[i].second, "nan", "inf"})
+            rejected(changeField(valid, "workshop", field, value));
+    }
+    rejected(changeField(valid, "workshop", 12, "true"));
+    for (const auto& record : {"land_color", "water_color", "atmosphere_color", "gas_color_a", "gas_color_b"})
+        for (size_t field : {1u, 2u, 3u})
+            for (const auto& value : {"-0.01", "1.01", "nan"})
+                rejected(changeField(valid, record, field, value));
+    rejected(changeField(valid, "missions", 1, "-2"));
+    rejected(changeField(valid, "missions", 1, "5"));
+    for (size_t field : {2u, 3u, 4u, 5u, 6u})
+        rejected(changeField(valid, "missions", field, "2"));
+    rejected(replaceOnce(valid, "\nwater_color ", "\nland_color "));
+    auto legacy = replaceOnce(valid, "SSELAB 2", "SSELAB 1");
+    const auto workshopStart = legacy.find("\nworkshop ");
+    legacy.erase(workshopStart, legacy.find("\norbits ", workshopStart) - workshopStart);
+    rejected(legacy); // A version 1 file cannot select the newly added fourth view.
     check(!sse::loadExperiment(temporary.path / "absent.sselab", loaded, loadedRender, loadedLab, selected, error),
           "Missing files must fail cleanly");
     check(sameSystem(loaded, unchanged) && sameRender(loadedRender, unchangedRender) &&
               sameLab(loadedLab, unchangedLab) && selected == 6,
           "A missing file must preserve every live field");
+    legacy = replaceOnce(legacy, "lab 3", "lab 2");
+    write(bad, legacy);
+    check(sse::loadExperiment(bad, loaded, loadedRender, loadedLab, selected, error), "Version 1 experiments must still load");
+    auto legacyLab = lab;
+    legacyLab.view = sse::LabView::Eclipse;
+    legacyLab.workshop = {}; legacyLab.missions = {};
+    check(sameSystem(source, loaded) && sameRender(render, loadedRender) && sameLab(legacyLab, loadedLab) && selected == 6,
+          "Version 1 loading must restore existing state and reset workshop/progress to defaults");
     // Defaults, overview selection and false booleans must also roundtrip.
     sse::SolarSystem defaults;
     sse::RenderSettings defaultRender;
@@ -292,6 +348,12 @@ void testPersistence() {
     auto invalidLab = defaultLab;
     invalidLab.eclipse.angularSpeed = -1;
     check(!sse::saveExperiment(file, defaults, defaultRender, invalidLab, -1, error), "Invalid eclipse values must not save");
+    invalidLab = defaultLab;
+    invalidLab.workshop.landColor[2] = std::numeric_limits<float>::quiet_NaN();
+    check(!sse::saveExperiment(file, defaults, defaultRender, invalidLab, -1, error), "Non-finite workshop colors must not save");
+    invalidLab = defaultLab; invalidLab.missions.active = 5;
+    check(!sse::saveExperiment(file, defaults, defaultRender, invalidLab, -1, error), "Invalid active mission must not save");
+    check(read(file) == originalBytes, "Every rejected save must preserve the prior file");
     check(!sse::saveExperiment(temporary.path / "missing" / "save.sselab", defaults, defaultRender, defaultLab, -1, error),
           "A missing destination directory must report a saving error");
     check(!sse::saveExperiment(temporary.path, defaults, defaultRender, defaultLab, -1, error),

@@ -34,7 +34,9 @@ void help() {
                  "  --benchmark         Disable VSync, default 600 frames\n"
                  "  --fallback-textures  Exercise procedural missing-texture recovery\n"
                  "  --assets PATH       Resource root containing shaders/ and assets/\n"
-                 "  --lab MODE          explore, orbit, or eclipse\n"
+                 "  --lab MODE          explore, orbit, eclipse, or workshop\n"
+                 "  --kind KIND         rocky or gas (opens Planet Workshop)\n"
+                 "  --seed N            Workshop terrain seed (0 .. 999999)\n"
                  "  --render-mode MODE  shaded, wireframe, or normals\n"
                  "  --experiment FILE   Load a saved .sselab experiment\n"
                  "  --eclipse KIND      solar or lunar (opens Eclipse Lab)\n"
@@ -44,6 +46,7 @@ void help() {
 #ifdef SSE_WITH_TESTS
                  "  --smoke-test        Run the built-in integration scenario\n"
                  "  --lab-smoke-test    Exercise orbit, graphics, persistence, and eclipse labs\n"
+                 "  --workshop-smoke-test  Exercise workshop generation, controls, and challenges\n"
 #endif
                  "  --help              Show this help\n";
 }
@@ -81,8 +84,18 @@ int explorerMain(int argc, char** argv) {
                     options.lab = sse::LabView::Orbit;
                 else if (mode == "eclipse")
                     options.lab = sse::LabView::Eclipse;
+                else if (mode == "workshop")
+                    options.lab = sse::LabView::Workshop;
                 else
-                    throw std::invalid_argument("--lab must be explore, orbit, or eclipse");
+                    throw std::invalid_argument("--lab must be explore, orbit, eclipse, or workshop");
+            } else if (flag == "--kind") {
+                const auto kind = value();
+                if (kind != "rocky" && kind != "gas")
+                    throw std::invalid_argument("--kind must be rocky or gas");
+                options.workshopKind = kind == "gas" ? sse::WorkshopKind::Gas : sse::WorkshopKind::Rocky;
+                options.lab = sse::LabView::Workshop;
+            } else if (flag == "--seed") {
+                options.seed = static_cast<uint32_t>(integer(value(), 0, 999999));
             } else if (flag == "--render-mode") {
                 const auto mode = value();
                 if (mode == "shaded")
@@ -145,6 +158,8 @@ int explorerMain(int argc, char** argv) {
                 options.smoke = true;
             else if (flag == "--lab-smoke-test")
                 options.labSmoke = true;
+            else if (flag == "--workshop-smoke-test")
+                options.workshopSmoke = true;
 #endif
             else
                 throw std::invalid_argument("Unknown option: " + flag + " (use --help)");
@@ -153,7 +168,9 @@ int explorerMain(int argc, char** argv) {
             options.frames = 360;
         if (options.labSmoke)
             options.frames = 240;
-        if (options.smoke && options.labSmoke)
+        if (options.workshopSmoke)
+            options.frames = 240;
+        if (int(options.smoke) + int(options.labSmoke) + int(options.workshopSmoke) > 1)
             throw std::invalid_argument("Choose only one smoke scenario");
         if (options.frames == 0 && !options.capture.empty())
             options.frames = 180;
