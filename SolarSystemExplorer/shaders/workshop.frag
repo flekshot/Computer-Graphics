@@ -25,7 +25,6 @@ uniform float uTurbulence;
 uniform float uAmbient;
 uniform float uDiffuse;
 uniform float uSpecular;
-uniform float uExposure;
 const float PI = 3.14159265358979323846;
 
 float hash(vec3 p) {
@@ -50,9 +49,6 @@ float fbm(vec3 p) {
     }
     return value;
 }
-vec3 displayColor(vec3 color) {
-    return pow(vec3(1.0) - exp(-max(color, vec3(0.0)) * uExposure), vec3(1.0 / 2.2));
-}
 void background() {
     vec2 uv = gl_FragCoord.xy / uViewport.xy;
     vec2 centered = (uv - .5) * vec2(uViewport.x / uViewport.y, 1.0);
@@ -64,7 +60,9 @@ void background() {
     vec2 center = vec2(hash(vec3(cell, 4.1)), hash(vec3(cell, 9.3))) * .72 + .14;
     float star = (1.0 - smoothstep(.012, .044, length(fract(grid) - center))) * step(.964, seed);
     sky += mix(vec3(.37, .57, .75), vec3(.82, .67, .46), hash(vec3(cell, 2.1))) * star * .72;
-    fragColor = vec4(sky, 1.0);
+    // Preserve the quiet background palette while storing shaded layers in
+    // linear light. Normal diagnostics bypass the output conversion entirely.
+    fragColor = vec4(uSurfaceMode == 2 ? sky : pow(sky, vec3(2.2)), 1.0);
 }
 void main() {
     if (uLayer == 3) { background(); return; }
@@ -81,7 +79,7 @@ void main() {
         float rim = pow(1.0 - facing, 3.4);
         float alpha = rim * smoothstep(0.0, .14, facing) * uAtmosphere *
                       (.19 + .47 * smoothstep(-.3, .8, dot(normal, light)));
-        fragColor = vec4(displayColor(uAtmosphereColor * (.55 + diffuse * 1.5)), alpha);
+        fragColor = vec4(uAtmosphereColor * (.55 + diffuse * 1.5), alpha);
         return;
     }
     if (uLayer == 1) {
@@ -92,7 +90,7 @@ void main() {
         float threshold = mix(.82, .22, uClouds);
         float alpha = smoothstep(threshold, threshold + .12, cloud) * .68 * smoothstep(.04, .32, facing);
         vec3 color = vec3(.84, .92, 1.0) * (.11 * uAmbient + 1.65 * diffuse * uDiffuse);
-        fragColor = vec4(displayColor(color), alpha);
+        fragColor = vec4(color, alpha);
         return;
     }
     if (uSurfaceMode == 2) {
@@ -144,5 +142,5 @@ void main() {
     color += uAtmosphereColor * rim * .13 * uAtmosphere * (.2 + diffuse);
     if (uSurfaceMode == 1)
         color = mix(color, vec3(.19, .56, .55), .48) + vec3(.025);
-    fragColor = vec4(displayColor(color), 1.0);
+    fragColor = vec4(color, 1.0);
 }

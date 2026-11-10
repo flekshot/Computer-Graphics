@@ -1,6 +1,7 @@
 #pragma once
 #include "Camera.h"
 #include "LabState.h"
+#include "LaboratoryTarget.h"
 #include "Mesh.h"
 #include "Shader.h"
 #include <filesystem>
@@ -16,6 +17,7 @@ class WorkshopRenderer {
 
   private:
     void updateGeometry(const WorkshopSettings& settings);
+    LaboratoryTarget target_;
     Shader surface_;
     Mesh sphere_;
     GLObject backgroundVao_{GLKind::VertexArray};

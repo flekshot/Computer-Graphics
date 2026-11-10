@@ -2,6 +2,7 @@
 #include "UIEffects.h"
 #include "AnimatedTexture.h"
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <algorithm>
@@ -101,17 +102,21 @@ UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) {
         const auto font = root / "assets/fonts/Roboto-Medium.ttf";
         if (std::filesystem::exists(font)) {
             const auto* glyphs = io.Fonts->GetGlyphRangesCyrillic();
-            body_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 16, nullptr, glyphs);
-            heading_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 23, nullptr, glyphs);
-            hero_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 38, nullptr, glyphs);
+            body_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 32, nullptr, glyphs);
+            heading_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 46, nullptr, glyphs);
+            hero_ = io.Fonts->AddFontFromFileTTF(font.u8string().c_str(), 76, nullptr, glyphs);
         }
-        if (!body_)
-            body_ = io.Fonts->AddFontDefault();
+        if (!body_) {
+            ImFontConfig config;
+            config.SizePixels = 26;
+            body_ = io.Fonts->AddFontDefault(&config);
+        }
         if (!heading_)
             heading_ = body_;
         if (!hero_)
             hero_ = heading_;
         io.FontDefault = body_;
+        io.FontGlobalScale = .5f;
         auto& style = ImGui::GetStyle();
         style.WindowPadding = {18, 16};
         style.FramePadding = {11, 8};
@@ -123,7 +128,10 @@ UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) {
         style.TabRounding = 2;
         style.WindowBorderSize = 1;
         style.FrameBorderSize = 0;
-        style.ScrollbarSize = 6;
+        style.ScrollbarSize = 10;
+        style.Colors[ImGuiCol_ScrollbarGrab] = {.35f, .39f, .45f, .8f};
+        style.Colors[ImGuiCol_ScrollbarGrabHovered] = {.62f, .65f, .71f, 1};
+        style.Colors[ImGuiCol_ScrollbarGrabActive] = cyan;
         style.Colors[ImGuiCol_WindowBg] = {0.022f, 0.027f, 0.035f, 0.94f};
         style.Colors[ImGuiCol_PopupBg] = {0.045f, 0.052f, 0.065f, .99f};
         style.Colors[ImGuiCol_Border] = {0.43f, 0.47f, 0.53f, 0.30f};
@@ -174,7 +182,43 @@ UIManager::~UIManager() {
 void UIManager::begin() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+    auto& io = ImGui::GetIO();
+    // Keep layout in logical pixels, including mouse hit testing. The physical
+    // framebuffer scale expands the resulting draw data without changing the scene.
+    const float fit = std::max(1.0f, std::min(io.DisplaySize.x / 1000, io.DisplaySize.y / 640));
+    const float scale = std::clamp(requestedScale_, 1.0f, std::min(2.0f, fit));
+    const float ratio = activeScale_ / scale;
+    auto rescalePosition = [ratio](ImVec2& position) {
+        if (ImGui::IsMousePosValid(&position)) {
+            position.x *= ratio;
+            position.y *= ratio;
+        }
+    };
+    rescalePosition(io.MousePos);
+    rescalePosition(io.MousePosPrev);
+    rescalePosition(ImGui::GetCurrentContext()->MouseLastValidPos);
+    for (int button = 0; button < IM_ARRAYSIZE(io.MouseClickedPos); ++button) {
+        rescalePosition(io.MouseClickedPos[button]);
+        io.MouseDragMaxDistanceSqr[button] *= ratio * ratio;
+    }
+    activeScale_ = scale;
+    io.DisplaySize.x /= scale;
+    io.DisplaySize.y /= scale;
+    io.DisplayFramebufferScale.x *= scale;
+    io.DisplayFramebufferScale.y *= scale;
+    for (auto& event : ImGui::GetCurrentContext()->InputEventsQueue)
+        if (event.Type == ImGuiInputEventType_MousePos && event.MousePos.PosX > -1e10f) {
+            event.MousePos.PosX /= scale;
+            event.MousePos.PosY /= scale;
+        }
     ImGui::NewFrame();
+    // ImGui may retain input for a later frame. Return that queue to window
+    // coordinates so retained mouse events cannot be scaled twice.
+    for (auto& event : ImGui::GetCurrentContext()->InputEventsQueue)
+        if (event.Type == ImGuiInputEventType_MousePos && event.MousePos.PosX > -1e10f) {
+            event.MousePos.PosX *= scale;
+            event.MousePos.PosY *= scale;
+        }
 }
 void UIManager::animatedHeading(const char* text) {
     // Let the native text widget preserve its line baseline, wrapping and layout.
@@ -189,9 +233,14 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
                           LabState& lab) {
     UIActions actions;
     const auto size = ImGui::GetIO().DisplaySize;
+    if (ImGui::IsKeyPressed(ImGuiKey_F10, false) && !ImGui::GetIO().WantTextInput &&
+        !ImGui::IsAnyItemActive() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+        cleanView_ = !cleanView_;
     const float left = size.x < 1200 ? 202.0f : 222.0f, right = size.x < 1200 ? 248.0f : 284.0f;
     const float top = 116, bottom = 96;
     const int currentView = static_cast<int>(lab.view);
+    if (previousView_ < 0)
+        navigationPosition_ = currentView * 128.0f;
     if (previousView_ != currentView || previousSelection_ != selected) {
         reveal_ = motion_ ? 0.0f : 1.0f;
         previousView_ = currentView;
@@ -263,6 +312,25 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     mode("Eclipse Lab", LabView::Eclipse);
     ImGui::SameLine();
     mode("Workshop", LabView::Workshop);
+    ImGui::SameLine();
+    if (softButton("View", {64, 29}, motion_))
+        ImGui::OpenPopup("View options");
+    ImGui::SetNextWindowSize({240, 0});
+    if (ImGui::BeginPopup("View options")) {
+        ImGui::MenuItem("Clean view", "F10", &cleanView_);
+        ImGui::MenuItem("Reference feeds", nullptr, &referenceFeeds_);
+        ImGui::Separator();
+        ImGui::TextDisabled("Interface scale");
+        for (const float scale : {1.0f, 1.25f, 1.5f, 1.75f, 2.0f}) {
+            char label[12];
+            std::snprintf(label, sizeof(label), "%.0f%%", scale * 100);
+            if (ImGui::MenuItem(label, nullptr, requestedScale_ == scale))
+                requestedScale_ = scale;
+        }
+        if (activeScale_ + .01f < requestedScale_)
+            ImGui::TextWrapped("Scale fits the current window. Enlarge the window for larger controls.");
+        ImGui::EndPopup();
+    }
     ImGui::SameLine(size.x - 392);
     if (softButton("Save...", {90, 29}, motion_))
         actions.saveExperiment = true;
@@ -273,6 +341,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     if (softButton("Reset experiment", {140, 29}, motion_))
         actions.resetExperiment = true;
     ImGui::End();
+    if (!cleanView_) {
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, .60f + .40f * reveal_);
     panel("Destinations", {16, top + 16}, {left, size.y - top - bottom - 32}, true, ambientPhase_ * 2.2f, motion_);
     if (lab.view == LabView::Eclipse) {
@@ -475,9 +544,18 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         "Drag to orbit   /   Scroll to zoom   /   WASD to pan   /   1-8 to explore   /   Space to pause");
     }
     ImGui::End();
+    } else {
+        ImGui::SetNextWindowPos({size.x * .5f, size.y - 16}, ImGuiCond_Always, {.5f, 1});
+        ImGui::SetNextWindowBgAlpha(.82f);
+        ImGui::Begin("Return to tools", nullptr, panelFlags | ImGuiWindowFlags_AlwaysAutoResize);
+        if (ImGui::SmallButton("Show tools  [F10]"))
+            cleanView_ = false;
+        ImGui::End();
+    }
     hudOverlay();
-    const float sceneLeft = left + 54, sceneWidth = size.x - left - right - 108;
-    if (lab.view != LabView::Eclipse && sceneWidth > 100) {
+    const float sceneLeft = cleanView_ ? 34 : left + 54;
+    const float sceneWidth = cleanView_ ? size.x - 68 : size.x - left - right - 108;
+    if (lab.view != LabView::Eclipse && (lab.view != LabView::Explore || selected < 0) && sceneWidth > 100) {
         auto* dl = ImGui::GetBackgroundDrawList();
         const char* sceneTitle = lab.view == LabView::Workshop ? "Planet Workshop" :
                                  lab.view == LabView::Orbit ? "An orbit, reimagined" :
@@ -498,9 +576,14 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
 void UIManager::helpWindow() {
     if (!help_)
         return;
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !ImGui::IsAnyItemActive()) {
+        help_ = false;
+        return;
+    }
     auto size = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos({size.x * 0.5f, size.y * 0.5f}, ImGuiCond_Always, {0.5f, 0.5f});
     ImGui::SetNextWindowSize({530, 0});
+    ImGui::SetNextWindowSizeConstraints({0, 0}, {size.x - 32, size.y - 32});
     if (ImGui::Begin("Flight manual", &help_,
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoSavedSettings)) {
@@ -522,6 +605,7 @@ void UIManager::helpWindow() {
                                          {"Space", "Pause / resume simulation"},
                                          {"+ / -", "Increase / decrease simulation speed"},
                                          {"H", "Toggle this help"},
+                                         {"F10", "Hide / restore tools"},
                                          {"Escape", "Exit"}};
             for (const auto& row : controls) {
                 ImGui::TableNextRow();
@@ -549,7 +633,8 @@ void UIManager::labels(const SolarSystem& system, const Camera& camera, int sele
         return;
     const auto vp = camera.projection(size.x / size.y) * camera.view();
     auto* dl = ImGui::GetBackgroundDrawList();
-    const float left = size.x < 1200 ? 232.0f : 252.0f, right = size.x - (size.x < 1200 ? 280.0f : 316.0f);
+    const float left = cleanView_ ? 24 : size.x < 1200 ? 232.0f : 252.0f;
+    const float right = size.x - (cleanView_ ? 24 : size.x < 1200 ? 280.0f : 316.0f);
     struct Rect {
         float x, y, w, h;
     };
@@ -577,8 +662,9 @@ void UIManager::labels(const SolarSystem& system, const Camera& camera, int sele
         occupied.push_back(box);
         dl->AddLine({p.x + (labelLeft ? -pixelRadius - 2 : pixelRadius + 2), p.y},
                     {labelLeft ? box.x + box.w + 3 : box.x - 3, box.y + 12}, color(tint, 130));
-        dl->AddRectFilled({box.x, box.y}, {box.x + box.w, box.y + box.h}, IM_COL32(4, 10, 19, 185), 4);
-        dl->AddText({box.x + 7, box.y + 3}, highlight ? IM_COL32(244, 248, 255, 255) : color(tint, 220),
+        dl->AddRectFilled({box.x, box.y}, {box.x + box.w, box.y + box.h}, IM_COL32(4, 10, 19, 220), 4);
+        dl->AddRectFilled({box.x, box.y + 5}, {box.x + 2, box.y + box.h - 5}, color(tint, 255), 1);
+        dl->AddText({box.x + 7, box.y + 3}, highlight ? IM_COL32(255, 255, 255, 255) : IM_COL32(219, 228, 239, 255),
                     name);
     };
     if (selected >= 0) {

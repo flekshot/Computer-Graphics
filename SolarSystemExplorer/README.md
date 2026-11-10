@@ -75,11 +75,15 @@ Choose **Explore**, **Orbit Lab**, **Eclipse Lab**, or **Workshop** in the top n
 
 Open **Workshop** for a separate procedural planet preview. Choose an ocean, volcanic, ice, or gas-giant preset; change its seed, shape, ocean level, ice, atmosphere, and palette. The same seed and settings recreate the same world. Wireframe shows the actual displaced mesh; World normals shows its surface directions. Drag and scroll to move the separate preview camera. Space pauses the preview rotation; the eight-planet clock waits while Workshop is open.
 
+The compact **Shape**, **Surface**, and **Air** tabs group the tools. Shape starts with radius, relief and sea level; seed and reset controls follow below. Surface contains the material palette, diagnostic view, lighting and rotation angle. Air contains clouds and atmosphere. Changing radius or relief preserves your camera angle and pan.
+
 Choose a challenge on the right, press **Start challenge**, make the requested changes, then press **Check challenge**. Challenges can lead into Orbit Lab or Eclipse Lab; their controls remain available in the right panel. Reset world and Reset experiment preserve completed progress; **Reset challenge progress...** is a separate deliberate action.
 
 The interface follows a graphite, white and red science-fiction HUD: angular instrument frames, scan lines, signal strips and flowing text highlights. Two downloaded GIFs supply a radar sweep and an Earth-rotation reference. They are bundled in `assets/hud/` and play offline; source and license credits are in `THIRD_PARTY_NOTICES.md` and `assets/hud/SOURCES.json`.
 
-The header's **Motion** checkbox stops decorative interface motion, freezes GIF playback and makes transitions immediate. Simulation and camera controls remain independent. This interface preference lasts for the current session. Large reference-feed cards appear at taller window sizes; compact layouts keep the small header/destination animations and all eight planet entries visible.
+The header's **Motion** checkbox stops decorative interface motion, freezes GIF playback and makes transitions immediate. Simulation and camera controls remain independent. Use **View > Reference feeds** to show the optional large GIF cards in taller windows; the small header/destination animations stay available in compact layouts.
+
+**View > Clean view** or **F10** hides the side and bottom panels while keeping navigation available. Use **Show tools** or F10 to return. **View > Interface scale** offers 100-200% sizes; the effective size fits the current window so the controls remain reachable. Motion, clean view, reference feeds and interface scale are session preferences. In Explore, orbit lines fade as the camera approaches a selected planet; Orbit Lab retains its educational overlays. Planet labels use bright text with colored markers.
 
 Start with [Ocean world](examples/ocean-world.sselab) or [Banded giant](examples/banded-giant.sselab).
 
@@ -108,6 +112,8 @@ Select Orbit Lab's **Graphics** tab:
 - **Shaded** uses the normal materials. Ambient, diffuse, and specular multipliers each range from 0 to 3; **Reset lighting** returns all three to 1.
 - **Wireframe** displays the actual indexed triangle mesh.
 - **World normals** maps world-space normal components to RGB and draws short normal-direction lines on the selected planet.
+
+World-normal diagnostic colors bypass exposure, bloom and artistic tone mapping in every laboratory. Workshop and Eclipse use up to 4x MSAA; transparent Workshop layers blend in linear light before the final display conversion.
 
 Lighting sliders are disabled in Wireframe and World normals modes. Bloom and exposure controls are also in the Graphics tab. Return to Shaded when comparing lighting or eclipse shadows.
 
@@ -156,7 +162,8 @@ Five starting points are included: [elliptical Mars](examples/elliptical-mars.ss
 | Speed slider | Set 0.05×–100×; 1× is 6 simulated days per second |
 | Orbits / Labels / Bloom | Toggle the corresponding render feature |
 | H | Show or hide the flight manual |
-| Escape | Exit; while editing a numeric UI value, cancel that edit first |
+| F10 | Hide or restore the side and bottom panels |
+| Escape | Dismiss an open menu/help or cancel numeric editing first; outside UI, exit |
 
 UI interaction is kept separate from camera input. Tab and arrow keys can navigate interface widgets. Panning while following adds a user offset; F clears that offset. Stars twinkle in real time even while planetary time is paused.
 
@@ -207,6 +214,7 @@ Eclipse Lab uses its own consistent illustrative Sun–Earth–Moon scale and fi
 | `EclipseModel`, `EclipseRenderer` | CPU occlusion geometry and the separate two-view eclipse renderer |
 | `WorkshopModel`, `Missions` | Deterministic terrain, presets, area estimates, and challenge predicates |
 | `WorkshopRenderer`, `WorkshopUI` | Separate planet preview and workshop/challenge controls |
+| `LaboratoryTarget` | Shared multisample HDR target and final display conversion for Workshop/Eclipse |
 | `AnimatedTexture`, `UIEffects`, `HudUI` | Bounded local GIF playback and native sci-fi HUD decoration |
 | `ExperimentIO`, `ExperimentDialogs` | Validated `.sselab` serialization and native Windows file dialogs |
 | `shaders/` | GLSL programs for the main scene, graphics diagnostics, and eclipse views |

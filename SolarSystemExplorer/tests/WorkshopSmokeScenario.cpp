@@ -195,6 +195,56 @@ void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Rend
         lab.workshop.seed = 71;
         lab.workshop.seaLevel = .7f;
     }
+    if (frame == 208 || frame == 213) ImGui::GetIO().AddKeyEvent(ImGuiKey_F10, true);
+    if (frame == 209 || frame == 214) ImGui::GetIO().AddKeyEvent(ImGuiKey_F10, false);
+    if (frame == 211 || frame == 216) {
+        const auto* panel = ImGui::FindWindowByName("Destinations");
+        const auto* header = ImGui::FindWindowByName("Top");
+        const bool clean = frame == 211;
+        if (!panel || panel->Active == clean || !header || !header->Active)
+            throw std::runtime_error("Workshop smoke: F10 must hide and restore tools while keeping navigation available");
+        if (clean) {
+            const auto* restore = ImGui::FindWindowByName("Return to tools");
+            if (!restore || !restore->Active || restore->Pos.y + restore->Size.y > ImGui::GetIO().DisplaySize.y)
+                throw std::runtime_error("Workshop smoke: the clean-view return button is outside the window");
+        }
+    }
+    if (frame == 218) click(580, 92, true);
+    if (frame == 219) click(580, 92, false);
+    static ImVec2 scaleChoice;
+    if (frame == 221) {
+        const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+        if (popups.empty() || !popups.back().Window)
+            throw std::runtime_error("Workshop smoke: View menu did not open");
+        const auto* popup = popups.back().Window;
+        // Two options, separator, heading, then 100%, 125%, 150%.
+        const float row = ImGui::GetFontSize() + ImGui::GetStyle().ItemSpacing.y;
+        scaleChoice = {popup->DC.CursorStartPos.x + 30,
+                       popup->DC.CursorStartPos.y + row * 5 + ImGui::GetStyle().ItemSpacing.y + ImGui::GetFontSize() * .5f};
+        click(scaleChoice.x, scaleChoice.y, true);
+    }
+    if (frame == 222) click(scaleChoice.x, scaleChoice.y, false);
+    if (frame == 224 && (std::abs(ImGui::GetIO().DisplaySize.x - 1024) > 1 ||
+                         std::abs(ImGui::GetIO().DisplaySize.y - 640) > 1))
+        throw std::runtime_error("Workshop smoke: interface scale did not fit the available window");
+    if (frame == 224 && (std::abs(ImGui::GetIO().MouseDelta.x) > 1 || std::abs(ImGui::GetIO().MouseDelta.y) > 1))
+        throw std::runtime_error("Workshop smoke: changing interface scale created artificial mouse movement");
+    if (frame == 225) glfwSetWindowSize(window, 2000, 1280);
+    if (frame == 227) {
+        int actualWidth = 0, actualHeight = 0;
+        glfwGetWindowSize(window, &actualWidth, &actualHeight);
+        if (std::abs(ImGui::GetIO().DisplaySize.x - actualWidth / 1.5f) > 1 ||
+            std::abs(ImGui::GetIO().DisplaySize.y - actualHeight / 1.5f) > 1)
+            throw std::runtime_error("Workshop smoke: requested 150% scale did not apply after enlarging the window");
+    }
+    if (frame == 228) click(80 * 1.5f, 92 * 1.5f, true);
+    if (frame == 229) click(80 * 1.5f, 92 * 1.5f, false);
+    if (frame == 231 && lab.view != LabView::Explore)
+        throw std::runtime_error("Workshop smoke: scaled mouse input missed Explore navigation");
+    if (frame == 232) click(480 * 1.5f, 92 * 1.5f, true);
+    if (frame == 233) click(480 * 1.5f, 92 * 1.5f, false);
+    if (frame == 235 && lab.view != LabView::Workshop)
+        throw std::runtime_error("Workshop smoke: scaled mouse input missed Workshop navigation");
     if (frame == 239)
         std::cout << "WORKSHOP SMOKE PASS: navigation, independent clock, pause, terrain, gas, normals, wireframe, persistence, challenges, resize, renderer switching, animated title colors, reduced motion\n";
 }

@@ -120,6 +120,35 @@ int main() {
             camera.update(1.0f / 60, {});
         check(camera.followed() < 0 && glm::length(camera.center()) < 0.001f,
               "Overview must detach and return to origin");
+        sse::Camera sculpting;
+        sculpting.focus(0, {}, 1);
+        sculpting.orbit(160, -90);
+        sculpting.zoom(2);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        sculpting.pan(.2f, -.1f, .3f);
+        sculpting.update(1.0f / 60, {});
+        const auto sculptingCenter = sculpting.center();
+        const auto sculptingDirection = glm::normalize(sculpting.position() - sculptingCenter);
+        const float sculptingDistance = sculpting.distance();
+        sculpting.setFocusRadius(1.5f);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        check(glm::length(sculpting.center() - sculptingCenter) < .0001f,
+              "Changing terrain size must preserve user pan");
+        check(glm::length(glm::normalize(sculpting.position() - sculpting.center()) - sculptingDirection) < .0001f,
+              "Changing terrain size must preserve viewing direction");
+        check(near(sculpting.distance(), sculptingDistance * 1.5f),
+              "Changing terrain size must preserve relative zoom");
+        sculpting.setFocusRadius(0);
+        sculpting.setFocusRadius(std::numeric_limits<float>::quiet_NaN());
+        check(near(sculpting.distance(), sculptingDistance * 1.5f),
+              "Invalid terrain bounds must leave the camera intact");
+        sculpting.zoom(1000);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        check(sculpting.distance() >= 1.5f * 1.42f,
+              "Zoom limits must follow the resized terrain");
         // Collision corrections during a focus flight must not become permanent user pan.
         sse::Camera flight;
         auto settle = [&](int index) {

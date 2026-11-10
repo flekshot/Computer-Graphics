@@ -4,6 +4,8 @@ namespace sse {
 class Camera {
   public:
     void focus(int index, const glm::vec3& anchor, float radius, bool rings = false);
+    // Resize the focused body without resetting the user's angle, pan or relative zoom.
+    void setFocusRadius(float radius, bool rings = false);
     void overview();
     void update(float dt, const glm::vec3& followedPosition);
     void orbit(float deltaX, float deltaY);

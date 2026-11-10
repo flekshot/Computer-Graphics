@@ -1,13 +1,20 @@
-﻿SOLAR SYSTEM EXPLORER - FILE INVENTORY
+SOLAR SYSTEM EXPLORER - FILE INVENTORY
 
-Project, assets, examples, licenses and screenshots (144 files)
+Project, assets, examples, licenses and screenshots (149 files)
 .clang-format
 .gitignore
+BuildAndRun.bat
+CMakeLists.txt
+CMakePresets.json
+LICENSE
+README.md
+THIRD_PARTY_NOTICES.md
 assets/fonts/LICENSE-Roboto.txt
 assets/fonts/Roboto-Medium.ttf
+assets/hud/SOURCES.json
 assets/hud/earth-rotation.gif
 assets/hud/radar.gif
-assets/hud/SOURCES.json
+assets/textures/SOURCES.json
 assets/textures/earth_clouds.jpg
 assets/textures/earth_daymap.jpg
 assets/textures/earth_nightmap.jpg
@@ -18,19 +25,17 @@ assets/textures/moon.jpg
 assets/textures/neptune.jpg
 assets/textures/saturn.jpg
 assets/textures/saturn_ring_alpha.png
-assets/textures/SOURCES.json
 assets/textures/stars_milky_way.jpg
 assets/textures/sun.jpg
 assets/textures/uranus.jpg
 assets/textures/venus_atmosphere.jpg
-BuildAndRun.bat
-CMakeLists.txt
-CMakePresets.json
 docs/DEMO_SCRIPT.md
 docs/FILE_MANIFEST.txt
 docs/IMPLEMENTATION_PLAN.md
 docs/PROJECT_EXPLANATION.md
 docs/REVIEW_NOTES.md
+docs/TESTING.md
+docs/USER_REQUIREMENTS.txt
 docs/screenshots/earth.png
 docs/screenshots/lunar-eclipse.png
 docs/screenshots/normals-lab.png
@@ -38,14 +43,14 @@ docs/screenshots/orbit-lab.png
 docs/screenshots/overview.png
 docs/screenshots/saturn.png
 docs/screenshots/solar-eclipse.png
-docs/screenshots/workshop.png
+docs/screenshots/workshop-compact.png
 docs/screenshots/workshop-gas.png
+docs/screenshots/workshop.png
 docs/superpowers/plans/2026-11-04-planet-workshop.md
 docs/superpowers/plans/2026-11-10-fixes-interface-refresh.md
+docs/superpowers/plans/2026-11-10-review-fixes-visual-polish.md
 docs/superpowers/specs/2026-11-04-planet-workshop-design.md
 docs/superpowers/specs/2026-11-10-interface-refresh-design.md
-docs/TESTING.md
-docs/USER_REQUIREMENTS.txt
 examples/banded-giant.sselab
 examples/elliptical-mars.sselab
 examples/lunar-eclipse.sselab
@@ -58,9 +63,10 @@ include/EclipseModel.h
 include/EclipseRenderer.h
 include/ExperimentDialogs.h
 include/ExperimentIO.h
-include/Geometry.h
 include/GLObject.h
+include/Geometry.h
 include/LabState.h
+include/LaboratoryTarget.h
 include/Mesh.h
 include/Missions.h
 include/Planet.h
@@ -73,19 +79,17 @@ include/UIManager.h
 include/VisualMath.h
 include/WorkshopModel.h
 include/WorkshopRenderer.h
-LICENSE
 licenses/CC-BY-4.0.txt
 licenses/CC-BY-SA-3.0.txt
 licenses/Dear-ImGui.txt
 licenses/GLEW.txt
 licenses/GLFW.txt
 licenses/GLM.txt
+licenses/Roboto-Apache-2.0.txt
 licenses/imstb_rectpack.h.license.txt
 licenses/imstb_textedit.h.license.txt
 licenses/imstb_truetype.h.license.txt
-licenses/Roboto-Apache-2.0.txt
 licenses/stb.txt
-README.md
 shaders/atmosphere.frag
 shaders/blur.frag
 shaders/composite.frag
@@ -97,6 +101,7 @@ shaders/eclipse.vert
 shaders/eclipse_line.frag
 shaders/eclipse_line.vert
 shaders/fullscreen.vert
+shaders/laboratory_composite.frag
 shaders/orbit.frag
 shaders/orbit.vert
 shaders/planet.frag
@@ -118,7 +123,7 @@ src/ExperimentIO.cpp
 src/Geometry.cpp
 src/HudUI.cpp
 src/LabUI.cpp
-src/main.cpp
+src/LaboratoryTarget.cpp
 src/Mesh.cpp
 src/Missions.cpp
 src/Planet.cpp
@@ -131,9 +136,9 @@ src/UIManager.cpp
 src/WorkshopModel.cpp
 src/WorkshopRenderer.cpp
 src/WorkshopUI.cpp
+src/main.cpp
 tests/CoreTests.cpp
 tests/EclipseTests.cpp
-tests/fixtures/unsupported-disposal.gif
 tests/LabSmokeScenario.cpp
 tests/LabSmokeScenario.h
 tests/LabTests.cpp
@@ -144,10 +149,11 @@ tests/SmokeScenario.h
 tests/WorkshopSmokeScenario.cpp
 tests/WorkshopSmokeScenario.h
 tests/WorkshopTests.cpp
-THIRD_PARTY_NOTICES.md
+tests/fixtures/unsupported-disposal.gif
 
 Bundled dependency source (561 files)
 third_party/CHECKSUMS.sha256
+third_party/MANIFEST.json
 third_party/glew/include/GL/eglew.h
 third_party/glew/include/GL/glew.h
 third_party/glew/include/GL/glxew.h
@@ -155,19 +161,21 @@ third_party/glew/include/GL/wglew.h
 third_party/glew/src/glew.c
 third_party/glfw/.editorconfig
 third_party/glfw/.mailmap
-third_party/glfw/CMake/cmake_uninstall.cmake.in
 third_party/glfw/CMake/GenerateMappings.cmake
+third_party/glfw/CMake/Info.plist.in
+third_party/glfw/CMake/cmake_uninstall.cmake.in
 third_party/glfw/CMake/glfw3.pc.in
 third_party/glfw/CMake/glfw3Config.cmake.in
-third_party/glfw/CMake/i686-w64-mingw32.cmake
 third_party/glfw/CMake/i686-w64-mingw32-clang.cmake
-third_party/glfw/CMake/Info.plist.in
+third_party/glfw/CMake/i686-w64-mingw32.cmake
 third_party/glfw/CMake/modules/FindEpollShim.cmake
 third_party/glfw/CMake/modules/FindOSMesa.cmake
-third_party/glfw/CMake/x86_64-w64-mingw32.cmake
 third_party/glfw/CMake/x86_64-w64-mingw32-clang.cmake
+third_party/glfw/CMake/x86_64-w64-mingw32.cmake
 third_party/glfw/CMakeLists.txt
 third_party/glfw/CONTRIBUTORS.md
+third_party/glfw/LICENSE.md
+third_party/glfw/README.md
 third_party/glfw/deps/getopt.c
 third_party/glfw/deps/getopt.h
 third_party/glfw/deps/glad/gl.h
@@ -193,8 +201,6 @@ third_party/glfw/deps/wayland/xdg-decoration-unstable-v1.xml
 third_party/glfw/deps/wayland/xdg-shell.xml
 third_party/glfw/include/GLFW/glfw3.h
 third_party/glfw/include/GLFW/glfw3native.h
-third_party/glfw/LICENSE.md
-third_party/glfw/README.md
 third_party/glfw/src/CMakeLists.txt
 third_party/glfw/src/cocoa_init.m
 third_party/glfw/src/cocoa_joystick.h
@@ -687,6 +693,7 @@ third_party/glm/glm/vec2.hpp
 third_party/glm/glm/vec3.hpp
 third_party/glm/glm/vec4.hpp
 third_party/glm/glm/vector_relational.hpp
+third_party/imgui/LICENSE.txt
 third_party/imgui/backends/imgui_impl_glfw.cpp
 third_party/imgui/backends/imgui_impl_glfw.h
 third_party/imgui/backends/imgui_impl_opengl3.cpp
@@ -702,11 +709,7 @@ third_party/imgui/imgui_widgets.cpp
 third_party/imgui/imstb_rectpack.h
 third_party/imgui/imstb_textedit.h
 third_party/imgui/imstb_truetype.h
-third_party/imgui/LICENSE.txt
 third_party/imgui/misc/fonts/Roboto-Medium.ttf
-third_party/MANIFEST.json
 third_party/stb/LICENSE
 third_party/stb/stb_image.h
 third_party/stb/stb_image_write.h
-
-Generated builds, archives, checksums and local verification logs are excluded.

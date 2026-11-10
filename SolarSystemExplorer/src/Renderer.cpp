@@ -243,7 +243,7 @@ void Renderer::diagnostics(const SolarSystem& system, const glm::mat4& vp, const
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 void Renderer::render(const SolarSystem& system, const Camera& camera, const RenderSettings& settings,
-                      int selected, float realTime) {
+                      int selected, float realTime, bool focusPresentation) {
     if (!drawable_)
         return;
     const RasterState rasterState;
@@ -351,6 +351,12 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
     if (settings.orbits) {
+        float closeUp = 0;
+        if (focusPresentation && selected >= 0 && static_cast<size_t>(selected) < system.planets().size() &&
+            camera.followed() == selected) {
+            const float relativeDistance = camera.distance() / system.planets()[selected].data().radius;
+            closeUp = 1.0f - glm::smoothstep(10.0f, 25.0f, relativeDistance);
+        }
         orbit_.use();
         orbit_.set("uVP", vp);
         for (size_t i = 0; i < system.planets().size(); ++i) {
@@ -360,7 +366,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             const float e = static_cast<float>(parameters.eccentricity);
             const bool chosen = static_cast<int>(i) == selected;
             orbit_.set("uColor", chosen ? p.data().color * 0.65f : glm::vec3(0.09f, 0.15f, 0.21f));
-            orbit_.set("uAlpha", chosen ? 0.9f : 0.5f);
+            orbit_.set("uAlpha", chosen ? glm::mix(.9f, .12f, closeUp) : glm::mix(.5f, .025f, closeUp));
             orbit_.set("uModel", glm::rotate(glm::mat4(1), glm::radians(static_cast<float>(parameters.inclinationDegrees)),
                                              glm::vec3(0, 0, 1)) *
                                      glm::translate(glm::mat4(1), glm::vec3(-a * e, 0, 0)) *
@@ -368,7 +374,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             orbitMesh_.draw();
         }
         orbit_.set("uColor", glm::vec3(0.2f, 0.33f, 0.48f));
-        orbit_.set("uAlpha", 0.6f);
+        orbit_.set("uAlpha", glm::mix(.6f, .12f, closeUp));
         orbit_.set("uModel", system.moonFrame(days) *
                                  glm::scale(glm::mat4(1), glm::vec3(SolarSystem::moonOrbitRadius)));
         orbitMesh_.draw();
@@ -423,7 +429,9 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     glBindFramebuffer(GL_READ_FRAMEBUFFER, msaaFbo_.id());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sceneFbo_.id());
     glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    if (settings.bloom) {
+    const bool normalColors = settings.surfaceMode == SurfaceMode::Normals;
+    const bool bloom = settings.bloom && !normalColors;
+    if (bloom) {
         blur_.use();
         blur_.set("uInput", 0);
         glActiveTexture(GL_TEXTURE0);
@@ -441,7 +449,8 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     composite_.use();
     composite_.set("uScene", 0);
     composite_.set("uBloom", 1);
-    composite_.set("uBloomEnabled", int(settings.bloom));
+    composite_.set("uBloomEnabled", int(bloom));
+    composite_.set("uNormalColors", int(normalColors));
     composite_.set("uExposure", settings.exposure);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sceneColor_.id());

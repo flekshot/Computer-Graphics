@@ -1,5 +1,6 @@
 #pragma once
 #include "EclipseModel.h"
+#include "LaboratoryTarget.h"
 #include "Mesh.h"
 #include "Shader.h"
 #include "Texture.h"
@@ -18,6 +19,7 @@ class EclipseRenderer {
                 const EclipseViewport& region, int framebufferWidth, int framebufferHeight);
 
   private:
+    LaboratoryTarget target_;
     void drawBody(const EclipseBody& body, const Texture& texture, const EclipseScene& scene,
                   const glm::mat4& vp, const glm::vec3& eye, const RenderSettings& graphics,
                   bool source, const EclipseBody* occluder);

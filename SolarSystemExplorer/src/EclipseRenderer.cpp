@@ -29,6 +29,7 @@ class GLState {
         glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &blendEquationAlpha_);
         glGetIntegerv(GL_CURRENT_PROGRAM, &program_);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao_);
+        glGetIntegerv(GL_RENDERBUFFER_BINDING, &renderbuffer_);
         glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture_);
         glActiveTexture(GL_TEXTURE0);
         glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture0_);
@@ -40,6 +41,7 @@ class GLState {
         scissor_ = glIsEnabled(GL_SCISSOR_TEST);
         cull_ = glIsEnabled(GL_CULL_FACE);
         srgb_ = glIsEnabled(GL_FRAMEBUFFER_SRGB);
+        multisample_ = glIsEnabled(GL_MULTISAMPLE);
     }
     ~GLState() {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo_));
@@ -56,11 +58,13 @@ class GLState {
         glBlendEquationSeparate(static_cast<GLenum>(blendEquationRGB_), static_cast<GLenum>(blendEquationAlpha_));
         enable(GL_DEPTH_TEST, depth_); enable(GL_BLEND, blend_); enable(GL_SCISSOR_TEST, scissor_);
         enable(GL_CULL_FACE, cull_); enable(GL_FRAMEBUFFER_SRGB, srgb_);
+        enable(GL_MULTISAMPLE, multisample_);
         glClearColor(clearColor_[0], clearColor_[1], clearColor_[2], clearColor_[3]);
         glClearDepth(clearDepth_);
         glLineWidth(lineWidth_);
         glUseProgram(static_cast<GLuint>(program_));
         glBindVertexArray(static_cast<GLuint>(vao_));
+        glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(renderbuffer_));
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture0_));
         glActiveTexture(static_cast<GLenum>(activeTexture_));
@@ -69,8 +73,8 @@ class GLState {
     static void enable(GLenum setting, GLboolean enabled) { if (enabled) glEnable(setting); else glDisable(setting); }
     GLint viewport_[4]{}, scissorBox_[4]{}, polygon_[2]{};
     GLint drawFbo_{}, readFbo_{}, depthFunc_{}, blendSrcRGB_{}, blendDstRGB_{}, blendSrcAlpha_{}, blendDstAlpha_{};
-    GLint blendEquationRGB_{}, blendEquationAlpha_{}, program_{}, vao_{}, activeTexture_{}, texture0_{};
-    GLboolean depthMask_{}, colorMask_[4]{}, depth_{}, blend_{}, scissor_{}, cull_{}, srgb_{};
+    GLint blendEquationRGB_{}, blendEquationAlpha_{}, program_{}, vao_{}, renderbuffer_{}, activeTexture_{}, texture0_{};
+    GLboolean depthMask_{}, colorMask_[4]{}, depth_{}, blend_{}, scissor_{}, cull_{}, srgb_{}, multisample_{};
     GLfloat clearColor_[4]{}, lineWidth_{};
     GLdouble clearDepth_{};
 };
@@ -103,9 +107,10 @@ glm::mat4 bodyMatrix(const EclipseBody& body) {
            glm::rotate(glm::mat4(1), -0.9f, glm::vec3(0, 1, 0)) *
            glm::scale(glm::mat4(1), glm::vec3(float(body.radius)));
 }
-void setViewport(const EclipseViewport& view, glm::vec3 background) {
+void setViewport(const EclipseViewport& view, glm::vec3 background, bool normalColors) {
     glViewport(view.x, view.y, view.width, view.height);
     glScissor(view.x, view.y, view.width, view.height);
+    if (!normalColors) background = glm::pow(background, glm::vec3(2.2f));
     glClearColor(background.x, background.y, background.z, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -116,7 +121,7 @@ EclipseViewport contentViewport(EclipseViewport view) {
 } // namespace
 
 EclipseRenderer::EclipseRenderer(const std::filesystem::path& root)
-    : surface_(root / "shaders/eclipse.vert", root / "shaders/eclipse.frag"),
+    : target_(root), surface_(root / "shaders/eclipse.vert", root / "shaders/eclipse.frag"),
       lines_(root / "shaders/eclipse_line.vert", root / "shaders/eclipse_line.frag"),
       sphere_(makeSphere()), orbit_(makeOrbit(), GL_LINE_LOOP), cone_(coneOutline(), GL_LINES),
       arrow_(lightArrow(), GL_LINES), sun_(root / "assets/textures/sun.jpg", "Sun"),
@@ -141,7 +146,6 @@ void EclipseRenderer::drawBody(const EclipseBody& body, const Texture& texture,
     surface_.set("uAmbient", graphics.ambient);
     surface_.set("uDiffuse", graphics.diffuse);
     surface_.set("uSpecular", graphics.specular);
-    surface_.set("uExposure", graphics.exposure);
     texture.bind();
     sphere_.draw();
 }
@@ -206,7 +210,7 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
     if (framebufferWidth <= 0 || framebufferHeight <= 0)
         return;
     const GLState restore;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    target_.begin(framebufferWidth, framebufferHeight);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_FRAMEBUFFER_SRGB);
@@ -217,7 +221,10 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
     glDepthMask(GL_TRUE);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClearDepth(1.0);
-    glClearColor(.012f, .021f, .035f, 1);
+    const bool normalColors = graphics.surfaceMode == SurfaceMode::Normals;
+    const glm::vec3 background = normalColors ? glm::vec3(.012f, .021f, .035f)
+        : glm::pow(glm::vec3(.012f, .021f, .035f), glm::vec3(2.2f));
+    glClearColor(background.x, background.y, background.z, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBlendEquation(GL_FUNC_ADD);
     glLineWidth(1);
@@ -227,14 +234,16 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
     const int bottom = std::clamp(region.y, 0, framebufferHeight);
     const int right = std::clamp(region.x + std::max(0, region.width), left, framebufferWidth);
     const int top = std::clamp(region.y + std::max(0, region.height), bottom, framebufferHeight);
-    if (right - left < 2 || top - bottom < 8)
+    if (right - left < 2 || top - bottom < 8) {
+        target_.present(graphics.exposure, normalColors);
         return;
+    }
     const int gap = 6, overviewHeight = (top - bottom - gap) * 38 / 100;
     const EclipseViewport overview{left, top - overviewHeight, right - left, overviewHeight};
     const EclipseViewport detail{left, bottom, right - left, top - bottom - overviewHeight - gap};
     const auto scene = makeEclipseScene(settings);
     glEnable(GL_SCISSOR_TEST);
-    setViewport(overview, {.018f, .035f, .055f});
+    setViewport(overview, {.018f, .035f, .055f}, normalColors);
     const auto overviewContent = contentViewport(overview);
     glViewport(overviewContent.x, overviewContent.y, overviewContent.width, overviewContent.height);
     const float aspect = float(overviewContent.width) / std::max(1, overviewContent.height);
@@ -247,7 +256,7 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
     drawBody(scene.moon, moon_, scene, vp, eye, graphics, false, &scene.earth);
     drawGeometry(scene, settings, vp);
 
-    setViewport(detail, {.012f, .025f, .045f});
+    setViewport(detail, {.012f, .025f, .045f}, normalColors);
     const auto detailContent = contentViewport(detail);
     glViewport(detailContent.x, detailContent.y, detailContent.width, detailContent.height);
     const float detailAspect = float(detailContent.width) / std::max(1, detailContent.height);
@@ -271,5 +280,6 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
                               glm::lookAt(detailEye, targetCenter, glm::vec3(0, 1, 0));
         drawBody(target, scene.lunar ? moon_ : earth_, scene, detailVP, detailEye, graphics, false, &scene.occluder());
     }
+    target_.present(graphics.exposure, normalColors);
 }
 } // namespace sse

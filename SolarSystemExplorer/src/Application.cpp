@@ -151,7 +151,7 @@ int Application::run() {
         if (options_.smoke)
             smokeFrame(frame, window_, system, camera, renderer, settings, select);
         if (options_.labSmoke)
-            labSmokeFrame(frame, window_, system, camera, settings, lab, selected, select);
+            labSmokeFrame(frame, window_, system, camera, workshopCamera, settings, lab, selected, select);
         if (options_.workshopSmoke)
             workshopSmokeFrame(frame, window_, system, settings, lab, options_.root);
 #endif
@@ -162,18 +162,25 @@ int Application::run() {
             continue;
         }
         renderer.resize(width, height);
+        // ImGui may dismiss an ordinary popup while starting the next frame.
+        // Keep its ownership of this Escape press before that state disappears.
+        const bool escapeOwnedByUI = ui.helpVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
+            ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         ui.begin();
         float sceneRadius = 60;
         if (system.isModified())
             for (const auto& planet : system.planets())
                 sceneRadius = std::max(sceneRadius, static_cast<float>(planet.apoapsis()) + planet.data().radius);
-        camera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, !options_.noUI, sceneRadius);
-        workshopCamera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, !options_.noUI);
-        // Text widgets may clear ActiveId while consuming Escape during draw().
-        const bool escapeOwnedByUI = ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive();
         UIActions action;
         if (!options_.noUI)
             action = ui.draw(system, lab.view == LabView::Workshop ? workshopCamera : camera, settings, selected, lab);
+        const bool panels = !options_.noUI && ui.panelsVisible();
+        camera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, panels, sceneRadius);
+        workshopCamera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, panels);
+#ifdef SSE_WITH_TESTS
+        if (options_.labSmoke)
+            labSmokeUIFrame(frame);
+#endif
         if (action.select != -2)
             select(action.select);
         if (action.reset) {
@@ -260,7 +267,8 @@ int Application::run() {
         }
         if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.WantTextInput)
             ui.toggleHelp();
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !escapeOwnedByUI)
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !escapeOwnedByUI &&
+            !io.WantCaptureKeyboard && !ImGui::IsAnyItemActive())
             glfwSetWindowShouldClose(window_, GLFW_TRUE);
         if (!io.WantCaptureMouse && lab.view != LabView::Eclipse) {
             auto& activeCamera = lab.view == LabView::Workshop ? workshopCamera : camera;
@@ -281,7 +289,7 @@ int Application::run() {
             const float radius = lab.workshop.radius * (1 + lab.workshop.relief);
             if (std::abs(radius - workshopFocusRadius) > .001f) {
                 workshopFocusRadius = radius;
-                focusWorkshop();
+                workshopCamera.setFocusRadius(radius);
             }
             workshopCamera.update(dt, {});
             workshopCamera.avoidSphere({}, radius);
@@ -301,11 +309,11 @@ int Application::run() {
                 const auto display = io.DisplaySize;
                 const float scaleX = static_cast<float>(width) / display.x;
                 const float scaleY = static_cast<float>(height) / display.y;
-                const float left = (display.x < 1200 ? 202.0f : 222.0f) + 32;
-                const float right = (display.x < 1200 ? 248.0f : 284.0f) + 32;
-                area = {static_cast<int>(left * scaleX), static_cast<int>(112 * scaleY),
+                const float left = panels ? (display.x < 1200 ? 202.0f : 222.0f) + 32 : 16;
+                const float right = panels ? (display.x < 1200 ? 248.0f : 284.0f) + 32 : 16;
+                area = {static_cast<int>(left * scaleX), static_cast<int>((panels ? 112 : 16) * scaleY),
                         static_cast<int>((display.x - left - right) * scaleX),
-                        static_cast<int>((display.y - 244) * scaleY)};
+                         static_cast<int>((display.y - (panels ? 244 : 148)) * scaleY)};
             }
             eclipseRenderer->render(lab.eclipse, settings, area, width, height);
             if (!options_.noUI)
@@ -315,7 +323,7 @@ int Application::run() {
                 workshopRenderer = std::make_unique<WorkshopRenderer>(options_.root);
             workshopRenderer->render(lab.workshop, settings, workshopCamera, width, height);
         } else {
-            renderer.render(system, camera, settings, selected, static_cast<float>(now));
+            renderer.render(system, camera, settings, selected, static_cast<float>(now), lab.view == LabView::Explore);
             if (settings.labels && !options_.noUI)
                 ui.labels(system, camera, selected);
         }
@@ -334,6 +342,10 @@ int Application::run() {
     glFinish();
     if ((options_.smoke || options_.labSmoke || options_.workshopSmoke) && frame != options_.frames)
         throw std::runtime_error("Smoke scenario exited before all assertions ran");
+#ifdef SSE_WITH_TESTS
+    if (options_.labSmoke)
+        labSmokeVerifyExit(window_);
+#endif
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::cout << "Completed " << frame << " frames in " << elapsed << " s; average "
               << (elapsed > 0 ? frame / elapsed : 0) << " FPS; GL errors: " << errorCount << '\n';

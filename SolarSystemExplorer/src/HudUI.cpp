@@ -6,6 +6,8 @@
 
 namespace sse {
 void UIManager::hudOverlay() {
+    if (cleanView_)
+        return;
     const auto display = ImGui::GetIO().DisplaySize;
     const float left = (display.x < 1200 ? 202.0f : 222.0f) + 48;
     const float right = display.x - (display.x < 1200 ? 248.0f : 284.0f) - 48;
@@ -19,7 +21,7 @@ void UIManager::hudOverlay() {
     draw->PushClipRect({left, top}, {right, bottom}, true);
 
     // The feeds are labelled reference/interface loops, not live astronomical data.
-    if (display.y >= 760 && width >= 560) {
+    if (referenceFeeds_ && display.y >= 760 && width >= 560) {
         const float feedWidth = 184, feedHeight = 96, feedTop = bottom - feedHeight;
         auto feed = [&](float x, AnimatedTexture* animation, const char* title, const char* caption, bool red) {
             const ImVec2 minimum(x, feedTop), maximum(x + feedWidth, bottom);
@@ -42,6 +44,8 @@ void UIManager::hudOverlay() {
     draw->PopClipRect();
 
     // A thin signal band keeps the scene readable at the compact window size.
+    if (!referenceFeeds_)
+        return;
     const float stripLeft = left + std::max(0.0f, width * .5f - 110);
     ui::signalStrip(draw, {stripLeft, display.y - 117}, {stripLeft + std::min(220.0f, width), display.y - 105},
                     phase, motion_, .42f);

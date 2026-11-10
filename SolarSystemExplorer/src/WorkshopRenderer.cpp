@@ -27,6 +27,11 @@ class GLState {
         glGetIntegerv(GL_CURRENT_PROGRAM, &program_);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao_);
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arrayBuffer_);
+        glGetIntegerv(GL_RENDERBUFFER_BINDING, &renderbuffer_);
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture_);
+        glActiveTexture(GL_TEXTURE0);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture0_);
+        glActiveTexture(static_cast<GLenum>(activeTexture_));
         glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor_);
         glGetDoublev(GL_DEPTH_CLEAR_VALUE, &clearDepth_);
         glGetFloatv(GL_LINE_WIDTH, &lineWidth_);
@@ -35,6 +40,7 @@ class GLState {
         scissor_ = glIsEnabled(GL_SCISSOR_TEST);
         cull_ = glIsEnabled(GL_CULL_FACE);
         srgb_ = glIsEnabled(GL_FRAMEBUFFER_SRGB);
+        multisample_ = glIsEnabled(GL_MULTISAMPLE);
     }
     ~GLState() {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawFbo_));
@@ -50,19 +56,25 @@ class GLState {
         glBlendEquationSeparate(static_cast<GLenum>(blendEquationRGB_), static_cast<GLenum>(blendEquationAlpha_));
         enable(GL_DEPTH_TEST, depth_); enable(GL_BLEND, blend_); enable(GL_SCISSOR_TEST, scissor_);
         enable(GL_CULL_FACE, cull_); enable(GL_FRAMEBUFFER_SRGB, srgb_);
+        enable(GL_MULTISAMPLE, multisample_);
         glClearColor(clearColor_[0], clearColor_[1], clearColor_[2], clearColor_[3]);
         glClearDepth(clearDepth_);
         glLineWidth(lineWidth_);
         glUseProgram(static_cast<GLuint>(program_));
         glBindVertexArray(static_cast<GLuint>(vao_));
         glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(arrayBuffer_));
+        glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(renderbuffer_));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture0_));
+        glActiveTexture(static_cast<GLenum>(activeTexture_));
     }
   private:
     static void enable(GLenum setting, GLboolean enabled) { if (enabled) glEnable(setting); else glDisable(setting); }
     GLint viewport_[4]{}, scissorBox_[4]{}, polygon_[2]{};
     GLint drawFbo_{}, readFbo_{}, depthFunc_{}, blendSrcRGB_{}, blendDstRGB_{}, blendSrcAlpha_{}, blendDstAlpha_{};
     GLint blendEquationRGB_{}, blendEquationAlpha_{}, program_{}, vao_{}, arrayBuffer_{};
-    GLboolean depthMask_{}, colorMask_[4]{}, depth_{}, blend_{}, scissor_{}, cull_{}, srgb_{};
+    GLint renderbuffer_{}, activeTexture_{}, texture0_{};
+    GLboolean depthMask_{}, colorMask_[4]{}, depth_{}, blend_{}, scissor_{}, cull_{}, srgb_{}, multisample_{};
     GLfloat clearColor_[4]{}, lineWidth_{};
     GLdouble clearDepth_{};
 };
@@ -78,7 +90,7 @@ glm::vec3 color(const std::array<float, 3>& rgb) { return {rgb[0], rgb[1], rgb[2
 } // namespace
 
 WorkshopRenderer::WorkshopRenderer(const std::filesystem::path& root)
-    : surface_(root / "shaders/workshop.vert", root / "shaders/workshop.frag"), sphere_(makeSphere()) {}
+    : target_(root), surface_(root / "shaders/workshop.vert", root / "shaders/workshop.frag"), sphere_(makeSphere()) {}
 
 void WorkshopRenderer::updateGeometry(const WorkshopSettings& settings) {
     if (planet_ && sameGeometry(settings, geometrySettings_))
@@ -103,8 +115,7 @@ void WorkshopRenderer::render(const WorkshopSettings& settings, const RenderSett
         return;
     const GLState restore;
     updateGeometry(settings);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, width, height);
+    target_.begin(width, height);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_FRAMEBUFFER_SRGB);
     glDisable(GL_BLEND);
@@ -122,6 +133,7 @@ void WorkshopRenderer::render(const WorkshopSettings& settings, const RenderSett
 
     surface_.use();
     surface_.set("uLayer", 3);
+    surface_.set("uSurfaceMode", int(graphics.surfaceMode));
     surface_.set("uViewport", glm::vec3(float(width), float(height), 0));
     glBindVertexArray(backgroundVao_.id());
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -143,11 +155,9 @@ void WorkshopRenderer::render(const WorkshopSettings& settings, const RenderSett
     surface_.set("uAtmosphereColor", color(settings.atmosphereColor));
     surface_.set("uGasColorA", color(settings.gasColorA));
     surface_.set("uGasColorB", color(settings.gasColorB));
-    surface_.set("uSurfaceMode", int(graphics.surfaceMode));
     surface_.set("uAmbient", graphics.ambient);
     surface_.set("uDiffuse", graphics.diffuse);
     surface_.set("uSpecular", graphics.specular);
-    surface_.set("uExposure", graphics.exposure);
     const auto rotation = glm::rotate(glm::mat4(1), glm::radians(settings.rotationDegrees), glm::vec3(0, 1, 0));
     surface_.set("uModel", rotation);
     surface_.set("uLayer", 0);
@@ -172,5 +182,6 @@ void WorkshopRenderer::render(const WorkshopSettings& settings, const RenderSett
             sphere_.draw();
         }
     }
+    target_.present(graphics.exposure, graphics.surfaceMode == SurfaceMode::Normals);
 }
 } // namespace sse

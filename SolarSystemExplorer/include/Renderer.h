@@ -14,7 +14,7 @@ class Renderer {
     Renderer(const std::filesystem::path& root, const SolarSystem& system, bool forceFallback = false);
     void resize(int width, int height);
     void render(const SolarSystem& system, const Camera& camera, const RenderSettings& settings, int selected,
-                float realTime);
+                float realTime, bool focusPresentation = false);
     void capture(const std::filesystem::path& file, int width, int height) const;
     int fallbackCount() const { return fallbackCount_; }
 

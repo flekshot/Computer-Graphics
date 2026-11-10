@@ -15,7 +15,6 @@ uniform int uSurfaceMode;
 uniform float uAmbient;
 uniform float uDiffuse;
 uniform float uSpecular;
-uniform float uExposure;
 const float PI = 3.14159265358979323846;
 
 // Exact circular lens area in angular coordinates. EclipseTests compares the
@@ -61,6 +60,5 @@ void main() {
         color = albedo * (0.027 * uAmbient + 1.65 * uDiffuse * diffuse * visibility);
         color += vec3(0.1) * uSpecular * specular * visibility;
     }
-    color = vec3(1.0) - exp(-max(color, vec3(0.0)) * uExposure);
-    fragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
+    fragColor = vec4(color, 1.0);
 }

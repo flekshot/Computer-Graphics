@@ -14,6 +14,15 @@ void Camera::focus(int index, const glm::vec3& anchor, float radius, bool rings)
     targetYaw_ = std::atan2(-anchor.x, -anchor.z) + 0.52f;
     targetYaw_ = yaw_ + std::remainder(targetYaw_ - yaw_, glm::two_pi<float>());
 }
+void Camera::setFocusRadius(float radius, bool rings) {
+    const float minimum = radius * (rings ? 3.0f : 1.42f);
+    if (followed_ < 0 || !std::isfinite(minimum) || minimum <= 0 || minimum > maxDistance_)
+        return;
+    const float scale = minimum / minDistance_;
+    minDistance_ = minimum;
+    targetDistance_ = std::clamp(targetDistance_ * scale, minDistance_, maxDistance_);
+    distance_ = std::clamp(distance_ * scale, minDistance_, maxDistance_);
+}
 void Camera::overview() {
     followed_ = -1;
     offset_ = center_;

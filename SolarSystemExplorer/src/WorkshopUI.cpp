@@ -47,13 +47,10 @@ const char* missionHint(int index) {
 void UIManager::workshopControls(LabState& lab, RenderSettings& settings) {
     auto& world = lab.workshop;
     ImGui::PushFont(heading_);
-    animatedHeading("Planet\nworkshop");
+    animatedHeading("Workshop");
     ImGui::PopFont();
-    hint("Shape a world. See every change.");
-    ImGui::Spacing();
-    ImGui::TextUnformatted("Start from a preset");
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("##workshop-preset", "Choose a world")) {
+    if (ImGui::BeginCombo("##workshop-preset", "Choose a preset")) {
         const char* presets[] = {"Ocean world", "Volcanic world", "Ice world", "Banded giant"};
         for (int index = 0; index < 4; ++index)
             if (ImGui::Selectable(presets[index])) {
@@ -62,96 +59,108 @@ void UIManager::workshopControls(LabState& lab, RenderSettings& settings) {
             }
         ImGui::EndCombo();
     }
-    ImGui::TextUnformatted("World type");
     int kind = int(world.kind);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::Combo("##workshop-kind", &kind, "Rocky\0Gas giant\0"))
         world.kind = WorkshopKind(kind);
-    ImGui::TextUnformatted("Seed");
-    int seed = int(world.seed);
-    ImGui::SetNextItemWidth(-1);
-    if (ImGui::InputInt("##workshop-seed", &seed, 1, 100))
-        world.seed = uint32_t(std::clamp(seed, 0, 999999));
-    if (ImGui::Button("New seed", {-1, 27}))
-        world.seed = (world.seed * 1664525u + 1013904223u) % 1000000u;
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The same seed and settings always recreate the same world.");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("World type");
 
-    section("Shape");
-    slider("Radius", "##workshop-radius", world.radius, .5f, 3, "%.2f");
-    slider("Feature scale", "##workshop-scale", world.featureScale, 1, 12, "%.1f");
-    if (world.kind == WorkshopKind::Rocky) {
-        slider("Relief", "##workshop-relief", world.relief, 0, .25f, "%.3f");
-        slider("Sea level", "##workshop-sea", world.seaLevel, 0, 1);
-        // Area sampling depends on the noise and sea threshold, never rotation
-        // or color. Avoid repeating that CPU work while the world just spins.
-        static WorkshopSettings coverageSettings;
-        static bool coverageReady = false;
-        static float coverage = 0;
-        if (!coverageReady || coverageSettings.seed != world.seed ||
-            coverageSettings.featureScale != world.featureScale || coverageSettings.seaLevel != world.seaLevel ||
-            coverageSettings.kind != world.kind) {
-            coverage = workshopOceanCoverage(world);
-            coverageSettings = world;
-            coverageReady = true;
+    // Keep the main sculpting controls visible even in the compact window.
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 6));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));
+    if (ImGui::BeginTabBar("World tools", ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+        if (ImGui::BeginTabItem("Shape")) {
+            slider("Radius", "##workshop-radius", world.radius, .5f, 3, "%.2f");
+            if (world.kind == WorkshopKind::Rocky) {
+                slider("Relief", "##workshop-relief", world.relief, 0, .25f, "%.3f");
+                slider("Sea level", "##workshop-sea", world.seaLevel, 0, 1);
+                static WorkshopSettings coverageSettings;
+                static bool coverageReady = false;
+                static float coverage = 0;
+                if (!coverageReady || coverageSettings.seed != world.seed ||
+                    coverageSettings.featureScale != world.featureScale || coverageSettings.seaLevel != world.seaLevel ||
+                    coverageSettings.kind != world.kind) {
+                    coverage = workshopOceanCoverage(world);
+                    coverageSettings = world;
+                    coverageReady = true;
+                }
+                ImGui::TextColored(aqua, "Ocean coverage  %.0f%%", coverage * 100);
+                ImGui::ProgressBar(coverage, {-1, 4}, "");
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Estimated surface area covered by ocean");
+            } else {
+                ImGui::TextUnformatted("Bands");
+                ImGui::SetNextItemWidth(-1);
+                ImGui::SliderInt("##workshop-bands", &world.gasBands, 3, 24, "%d", ImGuiSliderFlags_AlwaysClamp);
+                slider("Turbulence", "##workshop-turbulence", world.gasTurbulence, 0, 1);
+            }
+            slider("Feature scale", "##workshop-scale", world.featureScale, 1, 12, "%.1f");
+            section("Generation");
+            ImGui::TextUnformatted("Seed");
+            int seed = int(world.seed);
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::InputInt("##workshop-seed", &seed, 1, 100))
+                world.seed = uint32_t(std::clamp(seed, 0, 999999));
+            if (ImGui::Button("New seed", {-1, 27}))
+                world.seed = (world.seed * 1664525u + 1013904223u) % 1000000u;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("The same seed and settings always recreate the same world.");
+            if (ImGui::Button("Reset world", {-1, 27})) {
+                world = WorkshopSettings{};
+                setLabMessage("World reset. Challenge progress is preserved.");
+            }
+            ImGui::EndTabItem();
         }
-        ImGui::TextColored(aqua, "Ocean coverage  %.0f%%", coverage * 100);
-        ImGui::ProgressBar(coverage, {-1, 4}, "");
-        hint("Estimated surface area");
-        slider("Polar ice", "##workshop-ice", world.iceCap, 0, .6f);
-        slider("Clouds", "##workshop-clouds", world.clouds, 0, 1);
-    } else {
-        ImGui::TextUnformatted("Bands");
-        ImGui::SetNextItemWidth(-1);
-        ImGui::SliderInt("##workshop-bands", &world.gasBands, 3, 24, "%d", ImGuiSliderFlags_AlwaysClamp);
-        slider("Turbulence", "##workshop-turbulence", world.gasTurbulence, 0, 1);
-    }
-    slider("Atmosphere", "##workshop-atmosphere", world.atmosphere, 0, 1);
-
-    if (ImGui::CollapsingHeader("Palette")) {
-        if (world.kind == WorkshopKind::Rocky) {
-            editColor("Land", "##workshop-land", world.landColor);
-            editColor("Ocean", "##workshop-water", world.waterColor);
-        } else {
-            editColor("Dark bands", "##workshop-color-a", world.gasColorA);
-            editColor("Light bands", "##workshop-color-b", world.gasColorB);
+        if (ImGui::BeginTabItem("Surface")) {
+            ImGui::TextUnformatted("Surface view");
+            int surface = int(settings.surfaceMode);
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::Combo("##workshop-surface", &surface, "Shaded\0Wireframe\0World normals\0"))
+                settings.surfaceMode = SurfaceMode(surface);
+            if (settings.surfaceMode == SurfaceMode::Wireframe)
+                hint("Edges show the actual terrain mesh.");
+            else if (settings.surfaceMode == SurfaceMode::Normals)
+                hint("RGB encodes the surface direction.");
+            if (world.kind == WorkshopKind::Rocky) {
+                editColor("Land", "##workshop-land", world.landColor);
+                editColor("Ocean", "##workshop-water", world.waterColor);
+                slider("Polar ice", "##workshop-ice", world.iceCap, 0, .6f);
+            } else {
+                editColor("Dark bands", "##workshop-color-a", world.gasColorA);
+                editColor("Light bands", "##workshop-color-b", world.gasColorB);
+            }
+            if (ImGui::CollapsingHeader("Lighting")) {
+                ImGui::BeginDisabled(settings.surfaceMode != SurfaceMode::Shaded);
+                slider("Ambient", "##workshop-ambient", settings.ambient, 0, 3);
+                slider("Diffuse", "##workshop-diffuse", settings.diffuse, 0, 3);
+                slider("Specular", "##workshop-specular", settings.specular, 0, 3);
+                if (ImGui::Button("Reset lighting", {-1, 27}))
+                    settings.ambient = settings.diffuse = settings.specular = 1;
+                ImGui::EndDisabled();
+            }
+            if (ImGui::CollapsingHeader("Rotation")) {
+                ImGui::Checkbox("Animate world", &world.animate);
+                slider("Speed", "##workshop-speed", world.rotationSpeed, -45, 45, "%.1f deg/s");
+                float angle = std::remainder(world.rotationDegrees, 360.0f);
+                ImGui::TextUnformatted("Angle");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::SliderFloat("##workshop-angle", &angle, -180, 180, "%.1f deg", ImGuiSliderFlags_AlwaysClamp)) {
+                    world.rotationDegrees = angle;
+                    world.animate = false;
+                }
+            }
+            ImGui::EndTabItem();
         }
-        editColor("Atmosphere tint", "##workshop-air", world.atmosphereColor);
+        if (ImGui::BeginTabItem("Air")) {
+            slider("Atmosphere", "##workshop-atmosphere", world.atmosphere, 0, 1);
+            editColor("Atmosphere tint", "##workshop-air", world.atmosphereColor);
+            if (world.kind == WorkshopKind::Rocky)
+                slider("Clouds", "##workshop-clouds", world.clouds, 0, 1);
+            hint("Clouds and atmosphere are illustrative, not a weather simulation.");
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
     }
-    section("Rotation");
-    ImGui::Checkbox("Animate world", &world.animate);
-    slider("Speed", "##workshop-speed", world.rotationSpeed, -45, 45, "%.1f deg/s");
-    float angle = std::remainder(world.rotationDegrees, 360.0f);
-    ImGui::TextUnformatted("Angle");
-    ImGui::SetNextItemWidth(-1);
-    if (ImGui::SliderFloat("##workshop-angle", &angle, -180, 180, "%.1f deg", ImGuiSliderFlags_AlwaysClamp)) {
-        world.rotationDegrees = angle;
-        world.animate = false;
-    }
-    section("Surface view");
-    int surface = int(settings.surfaceMode);
-    ImGui::SetNextItemWidth(-1);
-    if (ImGui::Combo("##workshop-surface", &surface, "Shaded\0Wireframe\0World normals\0"))
-        settings.surfaceMode = SurfaceMode(surface);
-    if (settings.surfaceMode == SurfaceMode::Wireframe)
-        hint("Triangle edges show the actual generated terrain.");
-    else if (settings.surfaceMode == SurfaceMode::Normals)
-        hint("RGB shows each normal's world-space X, Y and Z direction.");
-    else
-        hint("Clouds and atmosphere illustrate the surface. They are not a physical weather model.");
-    slider("Exposure", "##workshop-exposure", settings.exposure, .2f, 3);
-    if (ImGui::CollapsingHeader("Lighting")) {
-        slider("Ambient", "##workshop-ambient", settings.ambient, 0, 3);
-        slider("Diffuse", "##workshop-diffuse", settings.diffuse, 0, 3);
-        slider("Specular", "##workshop-specular", settings.specular, 0, 3);
-        if (ImGui::Button("Reset lighting", {-1, 27}))
-            settings.ambient = settings.diffuse = settings.specular = 1;
-    }
-    ImGui::Spacing();
-    if (ImGui::Button("Reset world", {-1, 30})) {
-        world = WorkshopSettings{};
-        setLabMessage("World reset. Challenge progress is preserved.");
-    }
+    ImGui::PopStyleVar(2);
 }
 
 void UIManager::missionControls(SolarSystem& system, RenderSettings& settings, LabState& lab, int selected) {
@@ -220,6 +229,8 @@ void UIManager::missionControls(SolarSystem& system, RenderSettings& settings, L
     ImGui::SetNextWindowSize({std::min(400.0f, size.x - 40), 0}, ImGuiCond_Appearing);
     if (ImGui::BeginPopupModal("Reset challenge progress?", nullptr,
                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !ImGui::GetIO().WantTextInput)
+            ImGui::CloseCurrentPopup();
         ImGui::TextWrapped("Clear all completed challenges? Your world and other experiment settings stay as they are.");
         ImGui::Spacing();
         if (ImGui::Button("Reset progress", {155, 32})) {

@@ -28,6 +28,8 @@ class UIManager {
     void setLabMessage(std::string message, bool error = false);
     void finish(bool visible = true);
     void toggleHelp() { help_ = !help_; }
+    bool panelsVisible() const { return !cleanView_; }
+    bool helpVisible() const { return help_; }
 
   private:
     void helpWindow();
@@ -47,6 +49,8 @@ class UIManager {
     bool labMessageError_ = false;
     double labMessageUntil_ = 0;
     bool motion_ = true;
+    bool cleanView_ = false, referenceFeeds_ = false;
+    float requestedScale_ = 1, activeScale_ = 1;
     float navigationPosition_ = 0;
     float reveal_ = 1;
     float ambientPhase_ = 0;

@@ -17,11 +17,11 @@ void section(const char* title) {
     ImGui::TextColored(cyan, "%s", title);
 }
 bool slider(const char* title, const char* id, double& value, double minimum, double maximum,
-            const char* format) {
+            const char* format, ImGuiSliderFlags flags = 0) {
     ImGui::TextUnformatted(title);
     ImGui::SetNextItemWidth(-1);
     return ImGui::SliderScalar(id, ImGuiDataType_Double, &value, &minimum, &maximum, format,
-                              ImGuiSliderFlags_AlwaysClamp);
+                               ImGuiSliderFlags_AlwaysClamp | flags);
 }
 void hint(const char* message) {
     ImGui::PushTextWrapPos(0);
@@ -102,7 +102,8 @@ void UIManager::orbitEditor(SolarSystem& system, RenderSettings& settings, int s
     if (axisChanged && parameters.eccentricity > maxE) {
         parameters.eccentricity = maxE;
     }
-    changed |= slider("Eccentricity", "##eccentricity", parameters.eccentricity, 0, maxE, "%.3f");
+    changed |= slider("Eccentricity", "##eccentricity", parameters.eccentricity, 0, maxE, "%.3f",
+                      ImGuiSliderFlags_NoRoundToFormat);
     changed |= slider("Inclination", "##inclination", parameters.inclinationDegrees, -60, 60, "%.1f deg");
     changed |= slider("Orbital period", "##period", parameters.periodDays, 5, 200000, "%.1f days");
     changed |= slider("Initial phase", "##phase", parameters.phaseDegrees, -180, 180, "%.1f deg");
@@ -213,8 +214,8 @@ void UIManager::eclipseInfo(const EclipseSettings& settings, RenderSettings& ren
 
 void UIManager::eclipseLabels(const LabState& lab) const {
     const auto size = ImGui::GetIO().DisplaySize;
-    const float left = (size.x < 1200 ? 202.0f : 222.0f) + 32;
-    const float detailTop = 132 + std::max(1.0f, size.y - 244) * 0.38f + 6;
+    const float left = cleanView_ ? 16 : (size.x < 1200 ? 202.0f : 222.0f) + 32;
+    const float detailTop = 132 + std::max(1.0f, size.y - (cleanView_ ? 148 : 244)) * 0.38f + 6;
     auto* draw = ImGui::GetBackgroundDrawList();
     ui::spectrumText(draw, body_, 16, {left + 12, 136}, "System geometry", ambientPhase_ * 2.2f, motion_);
     const char* title = lab.eclipse.observerView ? "OBSERVER VIEW"

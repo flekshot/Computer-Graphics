@@ -1,5 +1,19 @@
 # Verification report
 
+## Review fixes and visual polish - 2026-11-10
+
+The reviewed Release source passes **13/13 CTest tests**. The final regression set includes the following additions:
+
+- Actual application Escape routing: ordinary popup dismissal, modal ownership, numeric-editor cancellation, and ordinary application exit.
+- Real Mercury/Mars eccentricity slider endpoints, plus Workshop radius/relief changes that preserve camera angle, pan and relative zoom. Core coverage is now **10,497 assertions**.
+- Framebuffer reads verifying normal RGB against the sphere direction and independence from exposure/bloom; the same exposure check covers both laboratory renderers.
+- Laboratory target multisampling, linear-light alpha blending and restoration of texture/renderbuffer/multisample state.
+- F10 hides/restores panels while retaining navigation; 150% interface scaling fits smaller windows, works after resizing and preserves mouse hit testing. A separate regression catches artificial mouse movement during a scale change.
+
+The four original reviewed failures were observed before their fixes. The clean-view and scaling regressions also caught their missing/incorrect behavior before completion. Updated captures inspect the compact Workshop layout, focused planets, diagnostic modes, eclipses and enlarged text. Hidden-window FPS is not an interactive performance benchmark. No new cross-GPU or native-file-dialog coverage is claimed.
+
+The optional large GIF cards are now controlled through View; small header/destination animations remain. Session-only presentation settings do not change saved experiment format.
+
 ## Interface and Workshop update - 2026-11-10
 
 The current **1.2.0** source was built with Visual Studio 2026 / MSVC 19.51, Release, in `build`. The complete suite passes **13 / 13 CTest tests**:

@@ -80,6 +80,8 @@ Build a rocky world or gas giant from a reproducible seed. Change terrain, ocean
 
 The interface uses a graphite, white and red sci-fi HUD with angular frames, scan lines, animated signal bars and flowing text highlights. Downloaded radar and Earth-rotation GIFs play locally without an internet connection; their authors and licenses are recorded in [third-party credits](SolarSystemExplorer/THIRD_PARTY_NOTICES.md). Turn off **Motion** in the header to freeze the decorative effects and GIFs. Camera and simulation motion remain independently controlled.
 
+Workshop tools are grouped into **Shape**, **Surface** and **Air** tabs. **View** offers a clean view (also **F10**), optional reference-feed cards, and 100-200% interface scaling that fits the window. Explore fades orbit lines for close-ups; labels remain bright. Workshop and Eclipse share multisample rendering, with linear-light cloud/atmosphere blending and exposure-independent normal diagnostics.
+
 ### Save and load experiments
 
 **Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, and challenge progress. New files use `SSELAB 2`; existing version 1 files still open. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.

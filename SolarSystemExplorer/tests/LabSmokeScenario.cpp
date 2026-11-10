@@ -2,6 +2,7 @@
 #include "ExperimentIO.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -59,7 +60,7 @@ class ScopedWorkingDirectory {
     std::filesystem::path original_;
 };
 } // namespace
-void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& camera, RenderSettings& settings,
+void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& camera, Camera& workshopCamera, RenderSettings& settings,
                    LabState& lab, int& selected, const std::function<void(int)>& select) {
     auto click = [&](float x, float y, bool pressed) {
         ImGui::GetIO().AddMousePosEvent(x, y);
@@ -146,6 +147,33 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& c
         throw std::runtime_error("Lab smoke: Overview lost the editable selection or kept tracking");
     if (frame == 23) settings.surfaceMode = SurfaceMode::Wireframe;
     if (frame == 30) settings.surfaceMode = SurfaceMode::Normals;
+    // Drag the actual eccentricity widget to its right edge. Formatting must not
+    // round its upper bound into an orbit that the model rejects.
+    if (frame == 31) {
+        system.resetOrbits();
+        select(0);
+    }
+    auto eccentricityEndpoint = [&](bool pressed) {
+        const auto* panel = ImGui::FindWindowByName("Object data");
+        if (!panel) throw std::runtime_error("Lab smoke: orbit editor panel is missing");
+        // The scrollbar reduces the content width; hit inside the slider, not its border.
+        click(panel->WorkRect.Max.x - 6, 456, pressed);
+    };
+    if (frame == 32) eccentricityEndpoint(true);
+    if (frame == 33) eccentricityEndpoint(false);
+    if (frame == 34) {
+        const double value = system.planets()[0].orbitParameters().eccentricity;
+        if (value < .3885 || value >= .388572)
+            throw std::runtime_error("Lab smoke: Mercury eccentricity endpoint was rejected or rounded beyond its limit");
+    }
+    if (frame == 35) select(3);
+    if (frame == 36) eccentricityEndpoint(true);
+    if (frame == 37) eccentricityEndpoint(false);
+    if (frame == 38) {
+        const double value = system.planets()[3].orbitParameters().eccentricity;
+        if (value < .7599 || value >= .76)
+            throw std::runtime_error("Lab smoke: Mars eccentricity endpoint was rejected or rounded beyond its limit");
+    }
     if (frame == 40) {
         settings.surfaceMode = SurfaceMode::Shaded;
         settings.ambient = 0.2f;
@@ -159,6 +187,28 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& c
     if (frame == 50) lab.eclipse = EclipseSettings{};
     if (frame == 65) lab.eclipse.phaseDegrees = 8;
     if (frame == 80) lab.eclipse.phaseDegrees = 30;
+    static Camera expectedWorkshopCamera;
+    if (frame == 82) {
+        lab.view = LabView::Workshop;
+        lab.workshop.animate = false;
+        workshopCamera.orbit(155, -87);
+        workshopCamera.pan(.2f, -.15f, .3f);
+        workshopCamera.zoom(2);
+    }
+    if (frame == 84 || frame == 87) {
+        expectedWorkshopCamera = workshopCamera;
+        expectedWorkshopCamera.update(1.0f / 60, {});
+        if (frame == 84) lab.workshop.relief = .22f;
+        else lab.workshop.radius = 1.8f;
+    }
+    if (frame == 85 || frame == 88) {
+        const auto actualDirection = glm::normalize(workshopCamera.position() - workshopCamera.center());
+        const auto expectedDirection = glm::normalize(expectedWorkshopCamera.position() - expectedWorkshopCamera.center());
+        if (glm::length(actualDirection - expectedDirection) > .0001f ||
+            glm::length(workshopCamera.center() - expectedWorkshopCamera.center()) > .0001f)
+            throw std::runtime_error("Lab smoke: a terrain edit reset the Workshop viewing angle or pan");
+    }
+    if (frame == 92) lab.view = LabView::Eclipse;
     if (frame == 95) {
         lab.eclipse.lunar = true;
         lab.eclipse.phaseDegrees = 0;
@@ -182,6 +232,13 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& c
     }
     if (frame == 190) glfwSetWindowSize(window, 1440, 900);
     if (frame == 195) lab.view = LabView::Orbit;
+    if (frame == 198 || frame == 203)
+        ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape, true);
+    if (frame == 199 || frame == 204) {
+        ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape, false);
+        if (glfwWindowShouldClose(window))
+            throw std::runtime_error("Lab smoke: Escape from a popup requested application exit");
+    }
     if (frame == 205) {
         system.resetOrbits();
         settings = RenderSettings{};
@@ -193,6 +250,39 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& c
     if (frame == 225 && lab.view != LabView::Explore)
         throw std::runtime_error("Lab smoke: Explore navigation did not restore the atlas");
     if (frame == 239)
-        std::cout << "LAB SMOKE PASS: navigation, editing, persistence, graphics modes, eclipses, observer, resize, reset\n";
+        ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape, true);
+}
+void labSmokeUIFrame(int frame) {
+    if (frame < 196 || frame > 206)
+        return;
+    // These fixtures use the real ImGui popup lifecycle and the application's
+    // actual input policy. A normal popup closes during NewFrame on Escape;
+    // a modal keeps keyboard ownership until explicitly dismissed.
+    ImGui::SetNextWindowPos({400, 240});
+    ImGui::SetNextWindowSize({350, 120});
+    ImGui::Begin("Lab input regression", nullptr, ImGuiWindowFlags_NoSavedSettings);
+    if (frame == 196) ImGui::OpenPopup("Ordinary popup");
+    if (ImGui::BeginPopup("Ordinary popup")) {
+        ImGui::TextUnformatted("Escape closes this popup, not the application.");
+        ImGui::EndPopup();
+    }
+    if (frame == 197 && !ImGui::IsPopupOpen("Ordinary popup"))
+        throw std::runtime_error("Lab smoke: ordinary popup fixture did not open");
+    if (frame == 199 && ImGui::IsPopupOpen("Ordinary popup"))
+        throw std::runtime_error("Lab smoke: Escape did not dismiss the ordinary popup");
+    if (frame == 201) ImGui::OpenPopup("Modal popup");
+    if (ImGui::BeginPopupModal("Modal popup", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::TextUnformatted("Escape must remain owned by this modal.");
+        if (frame == 206) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    if (frame == 202 && !ImGui::IsPopupOpen("Modal popup"))
+        throw std::runtime_error("Lab smoke: modal popup fixture did not open");
+    ImGui::End();
+}
+void labSmokeVerifyExit(GLFWwindow* window) {
+    if (!glfwWindowShouldClose(window))
+        throw std::runtime_error("Lab smoke: Escape outside UI no longer exits the application");
+    std::cout << "LAB SMOKE PASS: navigation, editing, persistence, graphics modes, eclipses, observer, resize, reset, eccentricity endpoints, terrain camera, popup and ordinary Escape\n";
 }
 } // namespace sse
