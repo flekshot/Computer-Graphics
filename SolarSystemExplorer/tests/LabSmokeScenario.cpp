@@ -59,7 +59,7 @@ class ScopedWorkingDirectory {
     std::filesystem::path original_;
 };
 } // namespace
-void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSettings& settings,
+void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& camera, RenderSettings& settings,
                    LabState& lab, int& selected, const std::function<void(int)>& select) {
     auto click = [&](float x, float y, bool pressed) {
         ImGui::GetIO().AddMousePosEvent(x, y);
@@ -131,7 +131,20 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSet
         if (!system.isModified() || !settings.trails || lab.view != LabView::Orbit)
             throw std::runtime_error("Lab smoke: experiment did not restore its state");
     }
-    if (frame == 20) settings.surfaceMode = SurfaceMode::Wireframe;
+    if (frame == 14) {
+        select(3);
+        settings.trails = settings.velocityVectors = settings.apsides = false;
+    }
+    if (frame == 15) click(200, 92, true);
+    if (frame == 16) click(200, 92, false);
+    if (frame == 18 && (camera.followed() != 3 || settings.trails || settings.velocityVectors || settings.apsides))
+        throw std::runtime_error("Lab smoke: repeated Orbit Lab selection changed the camera or overlays");
+    // The left Overview button must behave like 0/R: keep the edited planet.
+    if (frame == 19) click(100, 250, true);
+    if (frame == 20) click(100, 250, false);
+    if (frame == 22 && (selected != 3 || camera.followed() >= 0))
+        throw std::runtime_error("Lab smoke: Overview lost the editable selection or kept tracking");
+    if (frame == 23) settings.surfaceMode = SurfaceMode::Wireframe;
     if (frame == 30) settings.surfaceMode = SurfaceMode::Normals;
     if (frame == 40) {
         settings.surfaceMode = SurfaceMode::Shaded;
@@ -165,8 +178,9 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSet
     if (frame == 185) {
         if (lab.eclipse.phaseDegrees <= 0)
             throw std::runtime_error("Lab smoke: eclipse animation did not advance");
-        glfwSetWindowSize(window, 1440, 900);
+        glfwSetWindowSize(window, 1000, 2600);
     }
+    if (frame == 190) glfwSetWindowSize(window, 1440, 900);
     if (frame == 195) lab.view = LabView::Orbit;
     if (frame == 205) {
         system.resetOrbits();

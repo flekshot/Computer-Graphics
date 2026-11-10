@@ -4,7 +4,7 @@
 
 Explore the Sun and all eight planets, follow Earth and its Moon, and take a closer look at Saturn's rings. Adjust the simulation speed, move the camera freely, and learn about each world through planet information panels and an in-app flight manual.
 
-Version **1.1.0** adds editable elliptical orbits, graphics learning modes, saved experiments, and a separate Sun–Earth–Moon eclipse laboratory. The original eight-planet system remains the starting point.
+Version **1.2.0** adds a procedural Planet Workshop, five interactive challenges, and an animated observatory interface. Editable elliptical orbits, graphics learning modes, saved experiments, and Eclipse Lab remain available. The original eight-planet system remains the starting point.
 
 **Computer Graphics Fundamentals** · Windows x64 · Offline desktop application
 
@@ -56,7 +56,7 @@ The application runs locally without an internet connection. Dependency source c
 
 ## Interactive laboratories
 
-Use the top navigation to move between **Explore**, **Orbit Lab**, and **Eclipse Lab**. Explore and Orbit Lab share the same eight-planet system, so orbit edits remain visible when switching between them. **Reset experiment** restores the original orbits, time, lighting, and eclipse settings and pauses the system.
+Use the top navigation to move between **Explore**, **Orbit Lab**, **Eclipse Lab**, and **Workshop**. Explore and Orbit Lab share the same eight-planet system, so orbit edits remain visible when switching between them. **Reset experiment** restores the original orbits, time, lighting, and eclipse settings and pauses the system.
 
 ### Orbit Lab
 
@@ -74,11 +74,17 @@ This separate illustrative scene compares **solar** and **lunar** eclipses in tw
 
 Purple lines mark the umbra boundary; amber lines mark the penumbra boundary. The visible-sunlight percentage samples the target's Sun-facing surface center, so other points can have a different view. This demonstrates shadow geometry on an illustrative scale, with no prediction of real eclipse dates.
 
+### Planet Workshop and the refreshed interface
+
+Build a rocky world or gas giant from a reproducible seed. Change terrain, oceans, ice, bands, colors, clouds, and atmosphere, then inspect the actual mesh in wireframe or normal mode. Five challenges guide experiments across Workshop, Orbit Lab, and Eclipse Lab. Check each challenge explicitly; completed progress is saved with the experiment.
+
+The interface now uses floating observatory panels, illustrated planet destinations, an animated mode indicator, smooth selection feedback, and short notifications. Turn off **Motion** in the header for immediate transitions and a still interface. Camera and simulation motion remain independently controlled.
+
 ### Save and load experiments
 
-**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, and eclipse settings. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
+**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, and challenge progress. New files use `SSELAB 2`; existing version 1 files still open. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
 
-Start with the bundled [elliptical Mars](SolarSystemExplorer/examples/elliptical-mars.sselab), [solar eclipse](SolarSystemExplorer/examples/solar-eclipse.sselab), or [lunar eclipse](SolarSystemExplorer/examples/lunar-eclipse.sselab) experiments. Open them with **Load...** or pass their path to `--experiment`.
+Start with the bundled [elliptical Mars](SolarSystemExplorer/examples/elliptical-mars.sselab), [solar eclipse](SolarSystemExplorer/examples/solar-eclipse.sselab), [lunar eclipse](SolarSystemExplorer/examples/lunar-eclipse.sselab), [ocean world](SolarSystemExplorer/examples/ocean-world.sselab), or [banded giant](SolarSystemExplorer/examples/banded-giant.sselab) experiments. Open them with **Load...** or pass their path to `--experiment`.
 
 ## Gallery
 
@@ -98,6 +104,11 @@ These screenshots were captured from the application.
 | --- | --- |
 | ![Solar eclipse geometry and Earth detail](SolarSystemExplorer/docs/screenshots/solar-eclipse.png) | ![Lunar eclipse geometry and Moon detail](SolarSystemExplorer/docs/screenshots/lunar-eclipse.png) |
 | The Moon blocks sunlight reaching Earth. | Earth blocks sunlight reaching the Moon. |
+
+| Planet Workshop | Procedural gas giant |
+| --- | --- |
+| ![Procedural rocky world in the refreshed interface](SolarSystemExplorer/docs/screenshots/workshop.png) | ![Procedural gas giant and saved challenges](SolarSystemExplorer/docs/screenshots/workshop-gas.png) |
+| Shape terrain, oceans, clouds and atmosphere from a reproducible seed. | Experiment with bands, turbulence, palettes and explicitly checked challenges. |
 
 ## Technology stack
 

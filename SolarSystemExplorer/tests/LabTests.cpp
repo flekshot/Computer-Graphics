@@ -241,6 +241,21 @@ void testPersistence() {
     check(sse::loadExperiment(file, loaded, loadedRender, loadedLab, selected, error), "Saved experiment must load");
     check(sameSystem(source, loaded) && sameRender(render, loadedRender) && sameLab(lab, loadedLab) && selected == 6,
           "All eight orbits, clock, selection and every graphics/lab field must roundtrip exactly");
+    for (const auto view : {sse::LabView::Explore, sse::LabView::Orbit, sse::LabView::Eclipse}) {
+        auto otherViewLab = lab;
+        otherViewLab.view = view;
+        check(sse::saveExperiment(file, source, render, otherViewLab, 6, error),
+              "Workshop settings and mission progress must save from every other view");
+        sse::SolarSystem otherSystem;
+        sse::RenderSettings otherRender;
+        sse::LabState otherLab;
+        int otherSelected = -1;
+        check(sse::loadExperiment(file, otherSystem, otherRender, otherLab, otherSelected, error),
+              "Experiments saved from another view must load");
+        check(sameSystem(source, otherSystem) && sameRender(render, otherRender) &&
+                  sameLab(otherViewLab, otherLab) && otherSelected == 6,
+              "Changing views must preserve the entire saved workshop and mission progress");
+    }
     // A late invalid record must not apply the valid earlier records either.
     const auto unchanged = loaded;
     const auto unchangedRender = loadedRender;

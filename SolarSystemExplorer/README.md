@@ -4,7 +4,7 @@
 
 A native C++17 / OpenGL 3.3 application for Windows. Explore all eight planets, follow Earth and its Moon, inspect Saturn's rings, and control time from a compact Dear ImGui interface. The entire application runs offline. Library source code, licenses, fonts and all 14 texture maps are included.
 
-Version **1.1.0** adds **Orbit Lab**, graphics learning modes, `.sselab` experiment files, and a separate **Eclipse Lab** while preserving the original default eight-planet simulation.
+Version **1.2.0** adds **Planet Workshop**, five interactive challenges, and a refreshed animated observatory interface. Orbit Lab, graphics learning modes, saved experiments, and Eclipse Lab remain available.
 
 ![System overview](docs/screenshots/overview.png)
 
@@ -69,7 +69,17 @@ Resources are copied next to the executable by the build. Shader edits require r
 
 ## Laboratory guide
 
-Choose **Explore**, **Orbit Lab**, or **Eclipse Lab** in the top navigation. Explore and Orbit Lab share the same system and edits. Eclipse Lab has a separate illustrative Sun–Earth–Moon scene and its own animation; the main system's clock does not advance while that lab is active. At smaller window sizes, scroll the side panels to reach their remaining controls.
+Choose **Explore**, **Orbit Lab**, **Eclipse Lab**, or **Workshop** in the top navigation. Explore and Orbit Lab share the same system and edits. Eclipse Lab has a separate illustrative Sun–Earth–Moon scene and its own animation; the main system's clock does not advance while that lab is active. At smaller window sizes, scroll the side panels to reach their remaining controls.
+
+### Create a world in Planet Workshop
+
+Open **Workshop** for a separate procedural planet preview. Choose an ocean, volcanic, ice, or gas-giant preset; change its seed, shape, ocean level, ice, atmosphere, and palette. The same seed and settings recreate the same world. Wireframe shows the actual displaced mesh; World normals shows its surface directions. Drag and scroll to move the separate preview camera. Space pauses the preview rotation; the eight-planet clock waits while Workshop is open.
+
+Choose a challenge on the right, press **Start challenge**, make the requested changes, then press **Check challenge**. Challenges can lead into Orbit Lab or Eclipse Lab; their controls remain available in the right panel. Reset world and Reset experiment preserve completed progress; **Reset challenge progress...** is a separate deliberate action.
+
+The header's **Motion** checkbox stops decorative interface motion and makes its transitions immediate. Simulation and camera controls remain independent. This interface preference lasts for the current session.
+
+Start with [Ocean world](examples/ocean-world.sselab) or [Banded giant](examples/banded-giant.sselab).
 
 ### Edit an orbit
 
@@ -119,11 +129,11 @@ The scene uses a coherent illustrative scale to make the bodies and shadows visi
 
 ### Save and reopen an experiment
 
-Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the versioned `SSELAB 1` text format. Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; and eclipse kind, alignment, animation, cones, and observer setting.
+Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the versioned `SSELAB 2` text format (version 1 files still load). Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; eclipse kind, alignment, animation, cones, and observer setting; procedural world settings and palette; and challenge progress.
 
-Camera pose is not saved. Loading refocuses the saved planet selection, or returns to overview if none was selected. A malformed or unsupported file is rejected with a useful error, and the live state is replaced only after the complete file validates. You can also launch with `--experiment` followed by a saved file path.
+Camera poses and the session-only Motion preference are not saved. Loading refocuses the saved planet selection, or returns to overview if none was selected. A malformed or unsupported file is rejected with a useful error, and the live state is replaced only after the complete file validates. You can also launch with `--experiment` followed by a saved file path.
 
-The source and portable packages include three starting points: [elliptical Mars](examples/elliptical-mars.sselab), [solar eclipse](examples/solar-eclipse.sselab), and [lunar eclipse](examples/lunar-eclipse.sselab). Open any through **Load...**. From a portable folder, for example:
+Five starting points are included: [elliptical Mars](examples/elliptical-mars.sselab), [solar eclipse](examples/solar-eclipse.sselab), [lunar eclipse](examples/lunar-eclipse.sselab), [ocean world](examples/ocean-world.sselab), and [banded giant](examples/banded-giant.sselab). Open any through **Load...**. From a portable folder, for example:
 
 ```powershell
 .\SolarSystemExplorer.exe --experiment .\examples\elliptical-mars.sselab
@@ -164,7 +174,9 @@ Planet selection, orbit/pan/zoom, **F**, **0 / R**, and **+ / −** apply in Exp
 - Screen-space labels with overlap suppression, translucent panels, selection facts, status/FPS display and help.
 - Resource-owning classes, cached shader uniforms, shader error logs, texture fallback, resize handling and clean shutdown.
 - Shaded, actual-mesh wireframe, and world-normal modes, normal-direction glyphs, and independent ambient/diffuse/specular multipliers.
-- Validated, versioned experiment persistence with native Windows save/load dialogs.
+- Deterministic procedural rocky and gas worlds, displaced terrain, configurable palettes, and five explicitly checked challenges.
+- Animated navigation and selection, optional decorative motion, and Cyrillic filename notifications.
+- Validated version 2 experiment persistence with native Windows save/load dialogs and version 1 compatibility.
 - A separate solar/lunar eclipse scene with two stacked views, alignment presets, animation, umbra/penumbra boundaries, and sampled sunlight visibility.
 
 ![Earth and Moon](docs/screenshots/earth.png)
@@ -191,6 +203,8 @@ Eclipse Lab uses its own consistent illustrative Sun–Earth–Moon scale and fi
 | `UIManager` | ImGui styling, widgets, projected labels and contextual facts |
 | `LabUI`, `LabState` | Laboratory panels and shared graphics, view, and eclipse settings |
 | `EclipseModel`, `EclipseRenderer` | CPU occlusion geometry and the separate two-view eclipse renderer |
+| `WorkshopModel`, `Missions` | Deterministic terrain, presets, area estimates, and challenge predicates |
+| `WorkshopRenderer`, `WorkshopUI` | Separate planet preview and workshop/challenge controls |
 | `ExperimentIO`, `ExperimentDialogs` | Validated `.sselab` serialization and native Windows file dialogs |
 | `shaders/` | GLSL programs for the main scene, graphics diagnostics, and eclipse views |
 | `assets/` | 14 local surface/environment maps, Roboto font and provenance |
@@ -220,7 +234,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 These paths assume the explicit `-B build` configuration above. For the VS 2022 preset, use `build\vs2022\Release\SolarSystemExplorer.exe`; for VS 2026, use `build\vs2026\Release\SolarSystemExplorer.exe`.
 
-Laboratory CLI options are `--lab explore|orbit|eclipse`, `--render-mode shaded|wireframe|normals`, `--experiment FILE`, `--eclipse solar|lunar`, `--eclipse-phase N` (−180 to 180), `--eclipse-tilt N` (−30 to 30), and `--observer`. `--eclipse` opens Eclipse Lab. Explicit lab/render/eclipse options can override the corresponding settings loaded from an experiment; `--paused` also stops eclipse animation.
+Laboratory CLI options are `--lab explore|orbit|eclipse|workshop`, `--kind rocky|gas`, `--seed N`, `--render-mode shaded|wireframe|normals`, `--experiment FILE`, `--eclipse solar|lunar`, `--eclipse-phase N` (−180 to 180), `--eclipse-tilt N` (−30 to 30), and `--observer`. `--eclipse` opens Eclipse Lab; `--kind` opens Workshop. Explicit lab/render/eclipse/kind/seed options override the corresponding settings loaded from an experiment; `--paused` also stops eclipse and workshop animation.
 
 `--capture` defaults to 180 frames so focus can settle. `--frames` uses deterministic 1/60-second simulation steps. `--hidden` creates a hidden GLFW window but still requires a real graphics driver; it is not a software/headless renderer. `--benchmark` disables VSync; its reported average includes CPU submission, rendering, presentation and final GPU completion, and is not a guarantee for other hardware. Interactive mode enables VSync.
 

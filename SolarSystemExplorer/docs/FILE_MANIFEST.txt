@@ -1,6 +1,6 @@
-SOLAR SYSTEM EXPLORER - FILE INVENTORY
+﻿SOLAR SYSTEM EXPLORER - FILE INVENTORY
 
-Project, assets, examples, licenses and screenshots (112 files)
+Project, assets, examples, licenses and screenshots (134 files)
 .clang-format
 .gitignore
 assets/fonts/LICENSE-Roboto.txt
@@ -35,10 +35,18 @@ docs/screenshots/orbit-lab.png
 docs/screenshots/overview.png
 docs/screenshots/saturn.png
 docs/screenshots/solar-eclipse.png
+docs/screenshots/workshop.png
+docs/screenshots/workshop-gas.png
+docs/superpowers/plans/2026-11-04-planet-workshop.md
+docs/superpowers/plans/2026-11-10-fixes-interface-refresh.md
+docs/superpowers/specs/2026-11-04-planet-workshop-design.md
+docs/superpowers/specs/2026-11-10-interface-refresh-design.md
 docs/TESTING.md
 docs/USER_REQUIREMENTS.txt
+examples/banded-giant.sselab
 examples/elliptical-mars.sselab
 examples/lunar-eclipse.sselab
+examples/ocean-world.sselab
 examples/solar-eclipse.sselab
 include/Application.h
 include/Camera.h
@@ -50,12 +58,16 @@ include/Geometry.h
 include/GLObject.h
 include/LabState.h
 include/Mesh.h
+include/Missions.h
 include/Planet.h
 include/Renderer.h
 include/Shader.h
 include/SolarSystem.h
 include/Texture.h
 include/UIManager.h
+include/VisualMath.h
+include/WorkshopModel.h
+include/WorkshopRenderer.h
 LICENSE
 licenses/CC-BY-4.0.txt
 licenses/Dear-ImGui.txt
@@ -88,6 +100,8 @@ shaders/sky.frag
 shaders/star.frag
 shaders/star.vert
 shaders/sun.frag
+shaders/workshop.frag
+shaders/workshop.vert
 src/Application.cpp
 src/Camera.cpp
 src/EclipseModel.cpp
@@ -98,20 +112,28 @@ src/Geometry.cpp
 src/LabUI.cpp
 src/main.cpp
 src/Mesh.cpp
+src/Missions.cpp
 src/Planet.cpp
 src/Renderer.cpp
 src/Shader.cpp
 src/SolarSystem.cpp
 src/Texture.cpp
 src/UIManager.cpp
+src/WorkshopModel.cpp
+src/WorkshopRenderer.cpp
+src/WorkshopUI.cpp
 tests/CoreTests.cpp
 tests/EclipseTests.cpp
 tests/LabSmokeScenario.cpp
 tests/LabSmokeScenario.h
 tests/LabTests.cpp
+tests/MissionTests.cpp
 tests/ResourceTests.cmake
 tests/SmokeScenario.cpp
 tests/SmokeScenario.h
+tests/WorkshopSmokeScenario.cpp
+tests/WorkshopSmokeScenario.h
+tests/WorkshopTests.cpp
 THIRD_PARTY_NOTICES.md
 
 Bundled dependency source (561 files)

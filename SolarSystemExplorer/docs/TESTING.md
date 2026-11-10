@@ -1,5 +1,23 @@
 # Verification report
 
+## Interface and Workshop update - 2026-11-10
+
+The current **1.2.0** source was built with Visual Studio 2026 / MSVC 19.51, Release, in `build`. The complete suite passes **13 / 13 CTest tests**:
+
+```powershell
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
+```
+
+- CPU: Core 10,492 assertions; orbit/persistence 875; eclipse 62; workshop geometry 7,971; mission predicates 67.
+- OpenGL: context, original graphics smoke, laboratory smoke, workshop smoke, missing textures, bloom disabled, invalid CLI, and resource recovery all pass.
+- New regressions cover continuous cloud rotation, upright portrait eclipse projection, repeated Orbit Lab navigation, and overview selection preservation.
+- Workshop smoke exercises actual ImGui navigation, independent time, keyboard pause, terrain rebuilds, gas and diagnostic modes, persistence/challenge progress, compact/portrait resize, renderer switching, and the real Motion checkbox. It checks the rendered emblem vertices remain stationary with decorative motion disabled.
+- Captures of Explore, Earth, Saturn, Orbit Lab, normals, solar/lunar eclipses, rocky/gas Workshop and compact layouts were rendered by the application and inspected. All capture processes exited successfully with zero GL errors. At 1000x640 all eight destination entries fit; long inspector/workshop panels scroll.
+- Both added version 2 example files were loaded and rendered. Existing version 1 examples remain covered by loading and persistence tests. An independent read-only review found no Critical/Important issues; its minor duplicate mission predicate evaluation was removed.
+
+This is a Release verification of the current workstation. It does not add new cross-GPU, long-duration memory, native file-picker or OS minimize/restore claims. The older reports below retain their original scope and dates.
+
 ## Laboratory update — 2026-11-04
 
 Version **1.1.0** was built in the integrated workspace using **Visual Studio 2026 / MSVC 19.51**, Release configuration. The fresh integrated run passed **10 / 10 CTest tests**: the original seven tests plus three laboratory tests.

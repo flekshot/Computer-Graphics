@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "VisualMath.h"
 #include <glm/gtc/matrix_transform.hpp>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBIW_WINDOWS_UTF8
@@ -402,7 +403,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         planet_.use();
         planet_.set("uModel",
                     earth.modelMatrix(days) *
-                        glm::rotate(glm::mat4(1), float(std::remainder(days / 1000.0, 1.0)), glm::vec3(0, 1, 0)) *
+                        glm::rotate(glm::mat4(1), cloudRotationRadians(days), glm::vec3(0, 1, 0)) *
                         glm::scale(glm::mat4(1), glm::vec3(1.012f)));
         planet_.set("uClouds", 1);
         cloudMap_.bind();

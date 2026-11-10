@@ -1,4 +1,5 @@
 #include "EclipseRenderer.h"
+#include "VisualMath.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 #include <cmath>
@@ -258,7 +259,7 @@ void EclipseRenderer::render(const EclipseSettings& settings, const RenderSettin
         const double sourceAngle = std::asin(scene.sun.radius / glm::length(scene.sun.center - glm::dvec3(observer)));
         const double blockerAngle = std::asin(scene.occluder().radius / glm::length(scene.occluder().center - glm::dvec3(observer)));
         const float verticalFov = std::clamp(float(std::max(sourceAngle, blockerAngle) * 3.4), .35f, 1.55f);
-        const auto observerVP = glm::perspective(verticalFov / std::min(1.0f, detailAspect), detailAspect, .01f, 100.0f) *
+        const auto observerVP = glm::perspective(fitVerticalFov(verticalFov, detailAspect), detailAspect, .01f, 100.0f) *
                                 glm::lookAt(observer, glm::vec3(scene.sun.center), glm::vec3(0, 1, 0));
         drawBody(scene.sun, sun_, scene, observerVP, observer, graphics, true, nullptr);
         drawBody(scene.occluder(), scene.lunar ? earth_ : moon_, scene, observerVP, observer, graphics, false, &target);

@@ -230,8 +230,13 @@ void UIManager::labMessage() {
     if (labMessage_.empty() || ImGui::GetTime() > labMessageUntil_)
         return;
     const auto size = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos({size.x * 0.5f, size.y - 112}, ImGuiCond_Always, {0.5f, 1.0f});
+    const double remaining = labMessageUntil_ - ImGui::GetTime();
+    const double elapsed = (labMessageError_ ? 12.0 : 7.0) - remaining;
+    const float entrance = motion_ ? 1.0f - std::exp(-static_cast<float>(elapsed) * 12) : 1.0f;
+    const float opacity = motion_ ? entrance * std::min(1.0f, static_cast<float>(remaining) * 3) : 1;
+    ImGui::SetNextWindowPos({size.x * 0.5f, size.y - 112 + 12 * (1 - entrance)}, ImGuiCond_Always, {0.5f, 1.0f});
     ImGui::SetNextWindowSize({std::min(550.0f, size.x - 80), 0});
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, opacity);
     ImGui::Begin("Experiment status", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
@@ -239,5 +244,6 @@ void UIManager::labMessage() {
     ImGui::TextWrapped("%s", labMessage_.c_str());
     ImGui::PopStyleColor();
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 } // namespace sse

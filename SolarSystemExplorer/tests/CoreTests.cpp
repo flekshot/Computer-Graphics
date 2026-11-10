@@ -1,6 +1,7 @@
 #include "Camera.h"
 #include "Geometry.h"
 #include "SolarSystem.h"
+#include "VisualMath.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 #include <iostream>
@@ -20,6 +21,20 @@ bool near(double a, double b, double eps = 1e-4) {
 } // namespace
 int main() {
     try {
+        for (double boundary : {500.0, 1500.0, 9999999500.0}) {
+            const auto before = glm::rotate(glm::mat4(1), sse::cloudRotationRadians(boundary - .01), glm::vec3(0, 1, 0));
+            const auto after = glm::rotate(glm::mat4(1), sse::cloudRotationRadians(boundary + .01), glm::vec3(0, 1, 0));
+            check(glm::length(glm::vec3((before - after) * glm::vec4(1, 0, 0, 0))) < .002f,
+                  "Earth clouds must rotate continuously across their time wrap");
+        }
+        for (float aspect : {.15f, .34f, 1.0f, 2.0f}) {
+            const float fov = sse::fitVerticalFov(1.17f, aspect);
+            check(fov > 0 && fov < 3.14159265f,
+                  "An eclipse observer projection must never invert in a portrait window");
+            const auto projection = glm::perspective(fov, aspect, .01f, 100.0f);
+            check(projection[0][0] > 0 && projection[1][1] > 0,
+                  "Observer projection must keep both screen axes upright");
+        }
         sse::SolarSystem system;
         check(system.planets().size() == 8, "All eight planets must participate in the model");
         for (const auto& p : system.planets()) {

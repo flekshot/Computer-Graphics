@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "LabState.h"
 #include <filesystem>
+#include <array>
 #include <string>
 struct GLFWwindow;
 struct ImFont;
@@ -33,11 +34,19 @@ class UIManager {
     void eclipseControls(EclipseSettings& settings);
     void eclipseInfo(const EclipseSettings& settings, RenderSettings& render);
     void graphicsControls(RenderSettings& settings);
+    void workshopControls(LabState& lab, RenderSettings& settings);
+    void missionControls(SolarSystem& system, RenderSettings& settings, LabState& lab, int selected);
     void labMessage();
     ImFont *body_ = nullptr, *heading_ = nullptr, *hero_ = nullptr;
     bool glfwReady_ = false, glReady_ = false, help_ = false;
     std::string labMessage_;
     bool labMessageError_ = false;
     double labMessageUntil_ = 0;
+    bool motion_ = true;
+    float navigationPosition_ = 0;
+    float reveal_ = 1;
+    float ambientPhase_ = 0;
+    int previousView_ = -1, previousSelection_ = -2;
+    std::array<float, 8> destinationGlow_{};
 };
 } // namespace sse

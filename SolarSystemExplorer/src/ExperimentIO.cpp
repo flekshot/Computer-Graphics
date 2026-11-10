@@ -46,11 +46,32 @@ void validateSettings(const SolarSystem& system, const RenderSettings& render, c
                 render.surfaceMode == SurfaceMode::Normals, "Unknown surface visualization mode.");
     require(inRange(render.ambient, 0.0f, 3.0f) && inRange(render.diffuse, 0.0f, 3.0f) &&
                 inRange(render.specular, 0.0f, 3.0f), "Light multipliers must be between 0 and 3.");
-    require(lab.view == LabView::Explore || lab.view == LabView::Orbit || lab.view == LabView::Eclipse,
+    require(lab.view == LabView::Explore || lab.view == LabView::Orbit || lab.view == LabView::Eclipse ||
+                lab.view == LabView::Workshop,
             "Unknown laboratory view.");
     require(inRange(lab.eclipse.phaseDegrees, -3600.0f, 3600.0f), "Eclipse phase must be between -3600 and 3600 degrees.");
     require(inRange(lab.eclipse.inclinationDegrees, -30.0f, 30.0f), "Eclipse inclination must be between -30 and 30 degrees.");
     require(inRange(lab.eclipse.angularSpeed, 0.0f, 90.0f), "Eclipse animation speed must be between 0 and 90 degrees/second.");
+    const auto& workshop = lab.workshop;
+    require(workshop.kind == WorkshopKind::Rocky || workshop.kind == WorkshopKind::Gas, "Unknown workshop planet kind.");
+    require(workshop.seed <= 999999, "Workshop seed must be between 0 and 999999.");
+    require(inRange(workshop.radius, 0.5f, 3.0f), "Workshop radius must be between 0.5 and 3.");
+    require(inRange(workshop.relief, 0.0f, 0.25f), "Workshop relief must be between 0 and 0.25.");
+    require(inRange(workshop.featureScale, 1.0f, 12.0f), "Workshop feature scale must be between 1 and 12.");
+    require(inRange(workshop.seaLevel, 0.0f, 1.0f), "Workshop sea level must be between 0 and 1.");
+    require(inRange(workshop.iceCap, 0.0f, 0.6f), "Workshop ice cap must be between 0 and 0.6.");
+    require(inRange(workshop.clouds, 0.0f, 1.0f), "Workshop clouds must be between 0 and 1.");
+    require(inRange(workshop.atmosphere, 0.0f, 1.0f), "Workshop atmosphere must be between 0 and 1.");
+    require(inRange(workshop.rotationDegrees, -3600.0f, 3600.0f), "Workshop rotation must be between -3600 and 3600 degrees.");
+    require(inRange(workshop.rotationSpeed, -45.0f, 45.0f), "Workshop rotation speed must be between -45 and 45 degrees/second.");
+    require(workshop.gasBands >= 3 && workshop.gasBands <= 24, "Workshop gas bands must be between 3 and 24.");
+    require(inRange(workshop.gasTurbulence, 0.0f, 1.0f), "Workshop gas turbulence must be between 0 and 1.");
+    for (const auto* color : {&workshop.landColor, &workshop.waterColor, &workshop.atmosphereColor,
+                              &workshop.gasColorA, &workshop.gasColorB})
+        for (const float component : *color)
+            require(inRange(component, 0.0f, 1.0f), "Workshop color components must be between 0 and 1.");
+    require(lab.missions.active >= -1 && lab.missions.active < static_cast<int>(lab.missions.completed.size()),
+            "Active mission must be -1 (none) or 0 through 4.");
 }
 
 // Ordered, labelled records make omitted/duplicated fields fail instead of silently inheriting defaults.
@@ -193,7 +214,7 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         std::ostringstream output;
         output.imbue(std::locale::classic());
         output << std::setprecision(std::numeric_limits<double>::max_digits10);
-        output << "SSELAB 1\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
+        output << "SSELAB 2\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
         output << "\nrender " << render.orbits << ' ' << render.labels << ' ' << render.bloom << ' ' << render.exposure << ' '
                << static_cast<int>(render.surfaceMode) << ' ' << render.ambient << ' ' << render.diffuse << ' '
                << render.specular << ' ' << render.trails << ' ' << render.velocityVectors << ' ' << render.apsides;
@@ -201,6 +222,25 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         const auto& eclipse = lab.eclipse;
         output << "\neclipse " << eclipse.lunar << ' ' << eclipse.animate << ' ' << eclipse.showCones << ' '
                << eclipse.observerView << ' ' << eclipse.phaseDegrees << ' ' << eclipse.inclinationDegrees << ' ' << eclipse.angularSpeed;
+        const auto& workshop = lab.workshop;
+        output << "\nworkshop " << static_cast<int>(workshop.kind) << ' ' << workshop.seed << ' '
+               << workshop.radius << ' ' << workshop.relief << ' ' << workshop.featureScale << ' '
+               << workshop.seaLevel << ' ' << workshop.iceCap << ' ' << workshop.clouds << ' ' << workshop.atmosphere << ' '
+               << workshop.rotationDegrees << ' ' << workshop.rotationSpeed << ' ' << workshop.animate << ' '
+               << workshop.gasBands << ' ' << workshop.gasTurbulence;
+        const auto writeColor = [&](const char* record, const std::array<float, 3>& color) {
+            output << '\n' << record;
+            for (const float component : color)
+                output << ' ' << component;
+        };
+        writeColor("land_color", workshop.landColor);
+        writeColor("water_color", workshop.waterColor);
+        writeColor("atmosphere_color", workshop.atmosphereColor);
+        writeColor("gas_color_a", workshop.gasColorA);
+        writeColor("gas_color_b", workshop.gasColorB);
+        output << "\nmissions " << lab.missions.active;
+        for (const bool completed : lab.missions.completed)
+            output << ' ' << completed;
         output << "\norbits 8\n";
         for (size_t i = 0; i < system.planets().size(); ++i) {
             const auto& orbit = system.planets()[i].orbitParameters();
@@ -231,7 +271,8 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         require(input.peek() == std::char_traits<char>::eof(), "Experiment file changed while it was being read.");
         Reader reader(contents);
         reader.expect("SSELAB");
-        require(reader.number<int>("version") == 1, "Unsupported experiment version; expected SSELAB 1.");
+        const auto version = reader.number<int>("version");
+        require(version == 1 || version == 2, "Unsupported experiment version; expected SSELAB 1 or 2.");
         SolarSystem stagedSystem;
         RenderSettings stagedRender;
         LabState stagedLab;
@@ -269,6 +310,40 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         eclipse.phaseDegrees = reader.number<float>("eclipse phase");
         eclipse.inclinationDegrees = reader.number<float>("eclipse inclination");
         eclipse.angularSpeed = reader.number<float>("eclipse angular speed");
+        if (version == 2) {
+            reader.expect("workshop");
+            auto& workshop = stagedLab.workshop;
+            workshop.kind = static_cast<WorkshopKind>(reader.number<int>("workshop planet kind"));
+            workshop.seed = reader.number<uint32_t>("workshop seed");
+            workshop.radius = reader.number<float>("workshop radius");
+            workshop.relief = reader.number<float>("workshop relief");
+            workshop.featureScale = reader.number<float>("workshop feature scale");
+            workshop.seaLevel = reader.number<float>("workshop sea level");
+            workshop.iceCap = reader.number<float>("workshop ice cap");
+            workshop.clouds = reader.number<float>("workshop clouds");
+            workshop.atmosphere = reader.number<float>("workshop atmosphere");
+            workshop.rotationDegrees = reader.number<float>("workshop rotation");
+            workshop.rotationSpeed = reader.number<float>("workshop rotation speed");
+            workshop.animate = reader.boolean("workshop animation");
+            workshop.gasBands = reader.number<int>("workshop gas bands");
+            workshop.gasTurbulence = reader.number<float>("workshop gas turbulence");
+            const auto readColor = [&](const char* record, std::array<float, 3>& color) {
+                reader.expect(record);
+                for (float& component : color)
+                    component = reader.number<float>(record);
+            };
+            readColor("land_color", workshop.landColor);
+            readColor("water_color", workshop.waterColor);
+            readColor("atmosphere_color", workshop.atmosphereColor);
+            readColor("gas_color_a", workshop.gasColorA);
+            readColor("gas_color_b", workshop.gasColorB);
+            reader.expect("missions");
+            stagedLab.missions.active = reader.number<int>("active mission");
+            for (auto& completed : stagedLab.missions.completed)
+                completed = reader.boolean("completed mission");
+        } else {
+            require(stagedLab.view != LabView::Workshop, "SSELAB 1 experiments cannot select the workshop view.");
+        }
         validateSettings(stagedSystem, stagedRender, stagedLab, stagedSelected);
         reader.expect("orbits");
         require(reader.number<int>("planet count") == 8, "Experiments must contain exactly eight planets.");
