@@ -77,7 +77,7 @@ Open **Workshop** for a separate procedural planet preview. Choose an ocean, vol
 
 Choose a challenge on the right, press **Start challenge**, make the requested changes, then press **Check challenge**. Challenges can lead into Orbit Lab or Eclipse Lab; their controls remain available in the right panel. Reset world and Reset experiment preserve completed progress; **Reset challenge progress...** is a separate deliberate action.
 
-The interface follows a graphite, white and red science-fiction HUD: angular instrument frames, scan lines, a segmented tracking reticle, signal strips and flowing text highlights. Two downloaded GIFs supply a radar sweep and an Earth-rotation reference. They are bundled in `assets/hud/` and play offline; source and license credits are in `THIRD_PARTY_NOTICES.md` and `assets/hud/SOURCES.json`.
+The interface follows a graphite, white and red science-fiction HUD: angular instrument frames, scan lines, signal strips and flowing text highlights. Two downloaded GIFs supply a radar sweep and an Earth-rotation reference. They are bundled in `assets/hud/` and play offline; source and license credits are in `THIRD_PARTY_NOTICES.md` and `assets/hud/SOURCES.json`.
 
 The header's **Motion** checkbox stops decorative interface motion, freezes GIF playback and makes transitions immediate. Simulation and camera controls remain independent. This interface preference lasts for the current session. Large reference-feed cards appear at taller window sizes; compact layouts keep the small header/destination animations and all eight planet entries visible.
 
