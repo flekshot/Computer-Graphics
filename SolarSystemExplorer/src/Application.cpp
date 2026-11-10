@@ -1,10 +1,16 @@
 #include "Application.h"
 #include "UIManager.h"
+#include "EclipseRenderer.h"
+#include "ExperimentDialogs.h"
+#include "ExperimentIO.h"
+#include "WorkshopRenderer.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 #ifdef _WIN32
@@ -12,6 +18,8 @@
 #endif
 #ifdef SSE_WITH_TESTS
 #include "SmokeScenario.h"
+#include "LabSmokeScenario.h"
+#include "WorkshopSmokeScenario.h"
 #endif
 namespace sse {
 std::filesystem::path assetRoot(const char* argv0) {
@@ -81,9 +89,13 @@ int Application::run() {
     system.setSpeed(options_.speed);
     system.setPaused(options_.paused);
     Camera camera;
+    Camera workshopCamera;
     RenderSettings settings;
     settings.bloom = !options_.noBloom;
+    LabState lab;
     Renderer renderer(options_.root, system, options_.fallback);
+    std::unique_ptr<EclipseRenderer> eclipseRenderer;
+    std::unique_ptr<WorkshopRenderer> workshopRenderer;
     UIManager ui(window_, options_.root);
     int selected = -1, frame = 0, errorCount = 0;
     auto select = [&](int index) {
@@ -95,8 +107,38 @@ int Application::run() {
             camera.focus(index, p.position(system.days()), p.data().radius, index == 5);
         }
     };
+    if (!options_.experiment.empty()) {
+        std::string error;
+        if (!loadExperiment(options_.experiment, system, settings, lab, selected, error))
+            throw std::runtime_error("Cannot load experiment: " + error);
+        select(selected);
+    }
+    if (options_.lab) lab.view = *options_.lab;
+    if (options_.surfaceMode) settings.surfaceMode = *options_.surfaceMode;
+    if (options_.lunar) lab.eclipse.lunar = *options_.lunar;
+    if (options_.observer) lab.eclipse.observerView = *options_.observer;
+    if (options_.eclipsePhase) lab.eclipse.phaseDegrees = *options_.eclipsePhase;
+    if (options_.eclipseInclination) lab.eclipse.inclinationDegrees = *options_.eclipseInclination;
+    if (options_.workshopKind) lab.workshop.kind = *options_.workshopKind;
+    if (options_.seed) lab.workshop.seed = *options_.seed;
+    if (options_.paused) {
+        system.setPaused(true);
+        lab.eclipse.animate = false;
+        lab.workshop.animate = false;
+    }
+    if (options_.noBloom) settings.bloom = false;
+    if (lab.view == LabView::Orbit && options_.experiment.empty()) {
+        if (selected < 0) {
+            select(3);
+            camera.overview();
+        }
+        settings.trails = settings.velocityVectors = settings.apsides = true;
+    }
     if (options_.planet >= 0)
         select(options_.planet);
+    float workshopFocusRadius = lab.workshop.radius * (1 + lab.workshop.relief);
+    auto focusWorkshop = [&]() { workshopCamera.focus(0, {}, workshopFocusRadius); };
+    focusWorkshop();
     double previous = glfwGetTime();
     const auto start = std::chrono::steady_clock::now();
     while (!glfwWindowShouldClose(window_) && (options_.frames == 0 || frame < options_.frames)) {
@@ -108,6 +150,10 @@ int Application::run() {
 #ifdef SSE_WITH_TESTS
         if (options_.smoke)
             smokeFrame(frame, window_, system, camera, renderer, settings, select);
+        if (options_.labSmoke)
+            labSmokeFrame(frame, window_, system, camera, workshopCamera, settings, lab, selected, select);
+        if (options_.workshopSmoke)
+            workshopSmokeFrame(frame, window_, system, settings, lab, options_.root);
 #endif
         int width = 0, height = 0;
         glfwGetFramebufferSize(window_, &width, &height);
@@ -116,26 +162,94 @@ int Application::run() {
             continue;
         }
         renderer.resize(width, height);
+        // ImGui may dismiss an ordinary popup while starting the next frame.
+        // Keep its ownership of this Escape press before that state disappears.
+        const bool escapeOwnedByUI = ui.helpVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
+            ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         ui.begin();
-        camera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, !options_.noUI);
-        // Text widgets may clear ActiveId while consuming Escape during draw().
-        const bool escapeOwnedByUI = ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive();
+        float sceneRadius = 60;
+        if (system.isModified())
+            for (const auto& planet : system.planets())
+                sceneRadius = std::max(sceneRadius, static_cast<float>(planet.apoapsis()) + planet.data().radius);
         UIActions action;
         if (!options_.noUI)
-            action = ui.draw(system, camera, settings, selected);
+            action = ui.draw(system, lab.view == LabView::Workshop ? workshopCamera : camera, settings, selected, lab);
+        const bool panels = !options_.noUI && ui.panelsVisible();
+        camera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, panels, sceneRadius);
+        workshopCamera.setViewport(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y, panels);
+#ifdef SSE_WITH_TESTS
+        if (options_.labSmoke)
+            labSmokeUIFrame(frame);
+#endif
         if (action.select != -2)
             select(action.select);
-        if (action.reset)
-            select(-1);
+        if (action.reset) {
+            if (lab.view == LabView::Workshop) focusWorkshop();
+            else if (lab.view == LabView::Orbit) camera.overview();
+            else select(-1);
+        }
         if (action.refocus && selected >= 0)
             select(selected);
+        if (action.resetExperiment) {
+            system = SolarSystem{};
+            system.setPaused(true);
+            settings = RenderSettings{};
+            lab.eclipse = EclipseSettings{};
+            lab.workshop = WorkshopSettings{};
+            if (lab.view == LabView::Orbit) {
+                select(selected < 0 ? 3 : selected);
+                settings.trails = settings.velocityVectors = settings.apsides = true;
+                camera.overview();
+            } else if (lab.view == LabView::Workshop)
+                focusWorkshop();
+            else
+                select(-1);
+            ui.setLabMessage("Experiment restored. Your completed challenges are kept.");
+        }
+        if (action.saveExperiment || action.loadExperiment) {
+            try {
+                const auto file = chooseExperimentFile(window_, action.saveExperiment);
+                if (!file.empty()) {
+                    std::string error;
+                    const bool ok = action.saveExperiment
+                        ? saveExperiment(file, system, settings, lab, selected, error)
+                        : loadExperiment(file, system, settings, lab, selected, error);
+                    if (ok) {
+                        if (action.loadExperiment)
+                            select(selected);
+                        ui.setLabMessage(std::string(action.saveExperiment ? "Saved: " : "Loaded: ") +
+                                         file.filename().u8string());
+                    } else
+                        ui.setLabMessage(error, true);
+                }
+            } catch (const std::exception& error) {
+                ui.setLabMessage(error.what(), true);
+            }
+            previous = glfwGetTime();
+        }
         const auto& io = ImGui::GetIO();
         if (!io.WantCaptureKeyboard && !ImGui::IsAnyItemActive()) {
+            if (lab.view == LabView::Eclipse) {
+                if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
+                    lab.eclipse.animate = !lab.eclipse.animate;
+            } else if (lab.view == LabView::Workshop) {
+                if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
+                    lab.workshop.animate = !lab.workshop.animate;
+                if (ImGui::IsKeyPressed(ImGuiKey_F, false) || ImGui::IsKeyPressed(ImGuiKey_0, false) ||
+                    ImGui::IsKeyPressed(ImGuiKey_R, false))
+                    focusWorkshop();
+                const float right = float(glfwGetKey(window_, GLFW_KEY_D) == GLFW_PRESS) -
+                                    float(glfwGetKey(window_, GLFW_KEY_A) == GLFW_PRESS);
+                const float forward = float(glfwGetKey(window_, GLFW_KEY_W) == GLFW_PRESS) -
+                                      float(glfwGetKey(window_, GLFW_KEY_S) == GLFW_PRESS);
+                workshopCamera.pan(right, forward, dt);
+            } else {
             for (int i = 0; i < 8; ++i)
                 if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_1 + i), false))
                     select(i);
             if (ImGui::IsKeyPressed(ImGuiKey_0, false) || ImGui::IsKeyPressed(ImGuiKey_R, false))
-                select(-1);
+                if (lab.view == LabView::Orbit) camera.overview();
+                else select(-1);
             if (ImGui::IsKeyPressed(ImGuiKey_F, false) && selected >= 0)
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
@@ -149,27 +263,70 @@ int Application::run() {
             float forward = float(glfwGetKey(window_, GLFW_KEY_W) == GLFW_PRESS) -
                             float(glfwGetKey(window_, GLFW_KEY_S) == GLFW_PRESS);
             camera.pan(right, forward, dt);
+            }
         }
         if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.WantTextInput)
             ui.toggleHelp();
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !escapeOwnedByUI)
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !escapeOwnedByUI &&
+            !io.WantCaptureKeyboard && !ImGui::IsAnyItemActive())
             glfwSetWindowShouldClose(window_, GLFW_TRUE);
-        if (!io.WantCaptureMouse) {
+        if (!io.WantCaptureMouse && lab.view != LabView::Eclipse) {
+            auto& activeCamera = lab.view == LabView::Workshop ? workshopCamera : camera;
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2))
-                camera.orbit(io.MouseDelta.x, io.MouseDelta.y);
+                activeCamera.orbit(io.MouseDelta.x, io.MouseDelta.y);
             if (io.MouseWheel != 0)
-                camera.zoom(io.MouseWheel);
+                activeCamera.zoom(io.MouseWheel);
         }
-        system.update(dt);
+        if (lab.view == LabView::Eclipse) {
+            if (lab.eclipse.animate)
+                lab.eclipse.phaseDegrees = std::remainder(lab.eclipse.phaseDegrees + dt * lab.eclipse.angularSpeed, 360.0f);
+        } else if (lab.view == LabView::Workshop) {
+            if (lab.workshop.animate)
+                lab.workshop.rotationDegrees = std::remainder(lab.workshop.rotationDegrees + dt * lab.workshop.rotationSpeed, 360.0f);
+        } else
+            system.update(dt);
+        if (lab.view == LabView::Workshop) {
+            const float radius = lab.workshop.radius * (1 + lab.workshop.relief);
+            if (std::abs(radius - workshopFocusRadius) > .001f) {
+                workshopFocusRadius = radius;
+                workshopCamera.setFocusRadius(radius);
+            }
+            workshopCamera.update(dt, {});
+            workshopCamera.avoidSphere({}, radius);
+        } else {
         camera.update(dt, camera.followed() >= 0 ? system.planets()[camera.followed()].position(system.days())
                                                  : glm::vec3(0));
         camera.avoidSphere({0, 0, 0}, SolarSystem::sunRadius);
         for (const auto& p : system.planets())
             camera.avoidSphere(p.position(system.days()), p.data().radius);
         camera.avoidSphere(system.moonPosition(system.days()), SolarSystem::moonRadius);
-        renderer.render(system, camera, settings, selected, static_cast<float>(now));
-        if (settings.labels && !options_.noUI)
-            ui.labels(system, camera, selected);
+        }
+        if (lab.view == LabView::Eclipse) {
+            if (!eclipseRenderer)
+                eclipseRenderer = std::make_unique<EclipseRenderer>(options_.root);
+            EclipseViewport area{0, 0, width, height};
+            if (!options_.noUI) {
+                const auto display = io.DisplaySize;
+                const float scaleX = static_cast<float>(width) / display.x;
+                const float scaleY = static_cast<float>(height) / display.y;
+                const float left = panels ? (display.x < 1200 ? 202.0f : 222.0f) + 32 : 16;
+                const float right = panels ? (display.x < 1200 ? 248.0f : 284.0f) + 32 : 16;
+                area = {static_cast<int>(left * scaleX), static_cast<int>((panels ? 112 : 16) * scaleY),
+                        static_cast<int>((display.x - left - right) * scaleX),
+                         static_cast<int>((display.y - (panels ? 244 : 148)) * scaleY)};
+            }
+            eclipseRenderer->render(lab.eclipse, settings, area, width, height);
+            if (!options_.noUI)
+                ui.eclipseLabels(lab);
+        } else if (lab.view == LabView::Workshop) {
+            if (!workshopRenderer)
+                workshopRenderer = std::make_unique<WorkshopRenderer>(options_.root);
+            workshopRenderer->render(lab.workshop, settings, workshopCamera, width, height);
+        } else {
+            renderer.render(system, camera, settings, selected, static_cast<float>(now), lab.view == LabView::Explore);
+            if (settings.labels && !options_.noUI)
+                ui.labels(system, camera, selected);
+        }
         ui.finish(!options_.noUI);
         if (!options_.capture.empty() && frame + 1 == options_.frames)
             renderer.capture(options_.capture, width, height);
@@ -183,8 +340,12 @@ int Application::run() {
         ++frame;
     }
     glFinish();
-    if (options_.smoke && frame != options_.frames)
+    if ((options_.smoke || options_.labSmoke || options_.workshopSmoke) && frame != options_.frames)
         throw std::runtime_error("Smoke scenario exited before all assertions ran");
+#ifdef SSE_WITH_TESTS
+    if (options_.labSmoke)
+        labSmokeVerifyExit(window_);
+#endif
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::cout << "Completed " << frame << " frames in " << elapsed << " s; average "
               << (elapsed > 0 ? frame / elapsed : 0) << " FPS; GL errors: " << errorCount << '\n';

@@ -1,0 +1,251 @@
+#include "WorkshopSmokeScenario.h"
+#include "ExperimentIO.h"
+#include "Missions.h"
+#include "WorkshopModel.h"
+#include "AnimatedTexture.h"
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_internal.h>
+#include <chrono>
+#include <iostream>
+#include <stdexcept>
+#include <vector>
+
+namespace sse {
+namespace {
+std::vector<ImU32> headerTitleColors() {
+    const auto* header = ImGui::FindWindowByName("Top");
+    if (!header)
+        throw std::runtime_error("Workshop smoke: UI header is missing");
+    std::vector<ImU32> colors;
+    // Isolate the title glyphs from the orbital emblem, subtitle, and live status.
+    for (const auto& vertex : header->DrawList->VtxBuffer)
+        if (vertex.pos.x >= 84 && vertex.pos.x < 350 && vertex.pos.y >= 24 && vertex.pos.y < 50)
+            colors.push_back(vertex.col);
+    if (colors.size() < 24)
+        throw std::runtime_error("Workshop smoke: header title glyphs are missing");
+    return colors;
+}
+std::vector<unsigned char> texturePixels(const AnimatedTexture& texture) {
+    GLint previous = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous);
+    glBindTexture(GL_TEXTURE_2D, texture.id());
+    std::vector<unsigned char> pixels(static_cast<size_t>(texture.width()) * texture.height() * 4);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previous));
+    return pixels;
+}
+} // namespace
+
+void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSettings& settings, LabState& lab,
+                        const std::filesystem::path& root) {
+    static float animatedAngle = 0, pausedAngle = 0;
+    static ImVec2 pausedMarker;
+    static std::vector<ImU32> animatedTitleColors, pausedTitleColors;
+    auto click = [](float x, float y, bool pressed) {
+        ImGui::GetIO().AddMousePosEvent(x, y);
+        ImGui::GetIO().AddMouseButtonEvent(ImGuiMouseButton_Left, pressed);
+    };
+    if (frame == 0) {
+        system.setDays(12);
+        system.setPaused(true);
+        lab = LabState{};
+    }
+    if (frame == 2) click(480, 92, true);
+    if (frame == 1) {
+        GLint binding = 0, unpack = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack);
+        AnimatedTexture gif(root / "assets/hud/radar.gif", true);
+        if (!gif.ready() || gif.width() != 236 || gif.height() != 236 || gif.frameCount() != 121)
+            throw std::runtime_error("Workshop smoke: bundled radar GIF did not decode completely");
+        const auto first = texturePixels(gif);
+        gif.update(.9, true);
+        const auto animated = texturePixels(gif);
+        if (animated == first)
+            throw std::runtime_error("Workshop smoke: radar GIF did not advance its displayed frame");
+        gif.update(2.0, false);
+        if (texturePixels(gif) != animated)
+            throw std::runtime_error("Workshop smoke: Motion off changed the GIF frame");
+        GLint afterBinding = 0, afterUnpack = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &afterBinding);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &afterUnpack);
+        if (afterBinding != binding || afterUnpack != unpack)
+            throw std::runtime_error("Workshop smoke: GIF upload changed caller texture state");
+    }
+    if (frame == 3) click(480, 92, false);
+    if (frame == 5) {
+        if (lab.view != LabView::Workshop)
+            throw std::runtime_error("Workshop smoke: navigation did not open the preview");
+        animatedAngle = lab.workshop.rotationDegrees;
+    }
+    if (frame == 15 && (lab.workshop.rotationDegrees <= animatedAngle || system.days() != 12))
+        throw std::runtime_error("Workshop smoke: preview clock must run independently of planetary time");
+    if (frame == 6)
+        animatedTitleColors = headerTitleColors();
+    if (frame == 15) {
+        const auto colors = headerTitleColors();
+        if (colors == animatedTitleColors)
+            throw std::runtime_error("Workshop smoke: Motion on did not animate the header title colors");
+        bool multicolored = false;
+        for (const auto color : colors)
+            multicolored |= (color & ~IM_COL32_A_MASK) != (colors.front() & ~IM_COL32_A_MASK);
+        if (!multicolored)
+            throw std::runtime_error("Workshop smoke: header title must display multiple colors");
+    }
+    if (frame == 16) ImGui::GetIO().AddKeyEvent(ImGuiKey_Space, true);
+    if (frame == 17) ImGui::GetIO().AddKeyEvent(ImGuiKey_Space, false);
+    if (frame == 19) {
+        if (lab.workshop.animate)
+            throw std::runtime_error("Workshop smoke: Space did not pause rotation");
+        pausedAngle = lab.workshop.rotationDegrees;
+    }
+    if (frame == 23 && lab.workshop.rotationDegrees != pausedAngle)
+        throw std::runtime_error("Workshop smoke: paused world rotated");
+    if (frame == 25) lab.workshop = workshopPreset(0);
+    if (frame == 45) lab.workshop = workshopPreset(3);
+    if (frame == 65) settings.surfaceMode = SurfaceMode::Normals;
+    if (frame == 85) {
+        settings.surfaceMode = SurfaceMode::Wireframe;
+        lab.workshop = workshopPreset(1);
+    }
+    if (frame == 105) {
+        lab.workshop = workshopPreset(2);
+        settings.surfaceMode = SurfaceMode::Shaded;
+        glfwSetWindowSize(window, 1000, 640);
+    }
+    if (frame == 125) {
+        lab.workshop.seed = 999999;
+        lab.workshop.radius = 2.5f;
+        lab.workshop.relief = .25f;
+        lab.workshop.animate = false;
+    }
+    if (frame == 140) {
+        startMission(2, lab);
+        settings.surfaceMode = SurfaceMode::Normals;
+        if (!completeMission(2, system, settings, lab, -1) || !lab.missions.completed[2])
+            throw std::runtime_error("Workshop smoke: explicit challenge check failed");
+        const auto folder = std::filesystem::temp_directory_path() /
+            ("sse-workshop-smoke-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        if (!std::filesystem::create_directory(folder))
+            throw std::runtime_error("Workshop smoke: cannot reserve temporary directory");
+        struct Cleanup {
+            std::filesystem::path directory;
+            ~Cleanup() {
+                std::error_code ignored;
+                std::filesystem::remove(directory / "roundtrip.sselab", ignored);
+                std::filesystem::remove(directory, ignored);
+            }
+        } cleanup{folder};
+        std::string error;
+        int selected = -1;
+        if (!saveExperiment(folder / "roundtrip.sselab", system, settings, lab, selected, error))
+            throw std::runtime_error("Workshop smoke save: " + error);
+        lab = LabState{};
+        if (!loadExperiment(folder / "roundtrip.sselab", system, settings, lab, selected, error) ||
+            lab.workshop.seed != 999999 || !lab.missions.completed[2] || lab.view != LabView::Workshop)
+            throw std::runtime_error("Workshop smoke: full preview state did not roundtrip: " + error);
+    }
+    if (frame == 155) {
+        lab.view = LabView::Eclipse;
+        lab.eclipse.lunar = true;
+        lab.eclipse.observerView = true;
+        glfwSetWindowSize(window, 1000, 2600);
+    }
+    if (frame == 165) {
+        lab.view = LabView::Explore;
+        glfwSetWindowSize(window, 1440, 900);
+    }
+    if (frame == 175) {
+        lab.view = LabView::Workshop;
+        settings.surfaceMode = SurfaceMode::Shaded;
+        lab.workshop = workshopPreset(0);
+    }
+    // Exercise the real reduced-motion checkbox while preserving the simulation.
+    if (frame == 185) click(1195, 39, true);
+    if (frame == 186) click(1195, 39, false);
+    if (frame == 190 || frame == 200) {
+        const auto* header = ImGui::FindWindowByName("Top");
+        if (!header)
+            throw std::runtime_error("Workshop smoke: UI header is missing");
+        ImVec2 marker{};
+        int vertices = 0;
+        for (const auto& vertex : header->DrawList->VtxBuffer)
+            if (vertex.col == IM_COL32(102, 218, 209, 255) && vertex.pos.x > 24 && vertex.pos.x < 80 &&
+                vertex.pos.y > 24 && vertex.pos.y < 58) {
+                marker.x += vertex.pos.x;
+                marker.y += vertex.pos.y;
+                ++vertices;
+            }
+        if (vertices == 0)
+            throw std::runtime_error("Workshop smoke: orbital emblem is missing");
+        marker.x /= static_cast<float>(vertices);
+        marker.y /= static_cast<float>(vertices);
+        if (frame == 190)
+            pausedMarker = marker;
+        else if (std::abs(marker.x - pausedMarker.x) + std::abs(marker.y - pausedMarker.y) > .001f)
+            throw std::runtime_error("Workshop smoke: Motion off did not stop decorative animation");
+        const auto colors = headerTitleColors();
+        if (frame == 190)
+            pausedTitleColors = colors;
+        else if (colors != pausedTitleColors)
+            throw std::runtime_error("Workshop smoke: Motion off did not freeze the header title colors");
+    }
+    if (frame == 205) {
+        lab.workshop.seed = 71;
+        lab.workshop.seaLevel = .7f;
+    }
+    if (frame == 208 || frame == 213) ImGui::GetIO().AddKeyEvent(ImGuiKey_F10, true);
+    if (frame == 209 || frame == 214) ImGui::GetIO().AddKeyEvent(ImGuiKey_F10, false);
+    if (frame == 211 || frame == 216) {
+        const auto* panel = ImGui::FindWindowByName("Destinations");
+        const auto* header = ImGui::FindWindowByName("Top");
+        const bool clean = frame == 211;
+        if (!panel || panel->Active == clean || !header || !header->Active)
+            throw std::runtime_error("Workshop smoke: F10 must hide and restore tools while keeping navigation available");
+        if (clean) {
+            const auto* restore = ImGui::FindWindowByName("Return to tools");
+            if (!restore || !restore->Active || restore->Pos.y + restore->Size.y > ImGui::GetIO().DisplaySize.y)
+                throw std::runtime_error("Workshop smoke: the clean-view return button is outside the window");
+        }
+    }
+    if (frame == 218) click(580, 92, true);
+    if (frame == 219) click(580, 92, false);
+    static ImVec2 scaleChoice;
+    if (frame == 221) {
+        const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+        if (popups.empty() || !popups.back().Window)
+            throw std::runtime_error("Workshop smoke: View menu did not open");
+        const auto* popup = popups.back().Window;
+        // Two options, separator, heading, then 100%, 125%, 150%.
+        const float row = ImGui::GetFontSize() + ImGui::GetStyle().ItemSpacing.y;
+        scaleChoice = {popup->DC.CursorStartPos.x + 30,
+                       popup->DC.CursorStartPos.y + row * 5 + ImGui::GetStyle().ItemSpacing.y + ImGui::GetFontSize() * .5f};
+        click(scaleChoice.x, scaleChoice.y, true);
+    }
+    if (frame == 222) click(scaleChoice.x, scaleChoice.y, false);
+    if (frame == 224 && (std::abs(ImGui::GetIO().DisplaySize.x - 1024) > 1 ||
+                         std::abs(ImGui::GetIO().DisplaySize.y - 640) > 1))
+        throw std::runtime_error("Workshop smoke: interface scale did not fit the available window");
+    if (frame == 224 && (std::abs(ImGui::GetIO().MouseDelta.x) > 1 || std::abs(ImGui::GetIO().MouseDelta.y) > 1))
+        throw std::runtime_error("Workshop smoke: changing interface scale created artificial mouse movement");
+    if (frame == 225) glfwSetWindowSize(window, 2000, 1280);
+    if (frame == 227) {
+        int actualWidth = 0, actualHeight = 0;
+        glfwGetWindowSize(window, &actualWidth, &actualHeight);
+        if (std::abs(ImGui::GetIO().DisplaySize.x - actualWidth / 1.5f) > 1 ||
+            std::abs(ImGui::GetIO().DisplaySize.y - actualHeight / 1.5f) > 1)
+            throw std::runtime_error("Workshop smoke: requested 150% scale did not apply after enlarging the window");
+    }
+    if (frame == 228) click(80 * 1.5f, 92 * 1.5f, true);
+    if (frame == 229) click(80 * 1.5f, 92 * 1.5f, false);
+    if (frame == 231 && lab.view != LabView::Explore)
+        throw std::runtime_error("Workshop smoke: scaled mouse input missed Explore navigation");
+    if (frame == 232) click(480 * 1.5f, 92 * 1.5f, true);
+    if (frame == 233) click(480 * 1.5f, 92 * 1.5f, false);
+    if (frame == 235 && lab.view != LabView::Workshop)
+        throw std::runtime_error("Workshop smoke: scaled mouse input missed Workshop navigation");
+    if (frame == 239)
+        std::cout << "WORKSHOP SMOKE PASS: navigation, independent clock, pause, terrain, gas, normals, wireframe, persistence, challenges, resize, renderer switching, animated title colors, reduced motion\n";
+}
+} // namespace sse

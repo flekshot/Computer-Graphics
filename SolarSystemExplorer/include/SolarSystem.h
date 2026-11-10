@@ -9,6 +9,9 @@ class SolarSystem {
     static constexpr float moonOrbitRadius = 2.3f;
     SolarSystem();
     const std::vector<Planet>& planets() const { return planets_; }
+    bool setOrbit(size_t index, const OrbitParameters& parameters, std::string& error);
+    void resetOrbits();
+    bool isModified() const;
     void update(double seconds);
     double days() const { return days_; }
     void setDays(double days);
@@ -22,6 +25,7 @@ class SolarSystem {
 
   private:
     std::vector<Planet> planets_;
+    std::vector<OrbitParameters> defaultOrbits_;
     double days_ = 0;
     float speed_ = 1;
     bool paused_ = false;

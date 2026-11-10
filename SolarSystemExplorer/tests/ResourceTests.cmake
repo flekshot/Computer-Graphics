@@ -7,7 +7,7 @@ file(COPY_FILE "${EXE}" "${relocated}/SolarSystemExplorer.exe" ONLY_IF_DIFFERENT
 file(COPY "${SOURCE}/assets" "${SOURCE}/shaders" DESTINATION "${relocated}")
 execute_process(COMMAND "${relocated}/SolarSystemExplorer.exe" --hidden --frames 3
     WORKING_DIRECTORY "${TEST_ROOT}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
-if(NOT result EQUAL 0 OR NOT output MATCHES "0 texture fallbacks")
+if(NOT result EQUAL 0 OR NOT output MATCHES "0 texture fallbacks" OR NOT output MATCHES "HUD animations: 2 ready")
     message(FATAL_ERROR "Unicode relocation failed: ${result}\n${output}\n${errors}")
 endif()
 file(WRITE "${relocated}/assets/textures/earth_daymap.jpg" "This is a corrupt texture, not a JPEG.")
@@ -15,6 +15,18 @@ execute_process(COMMAND "${relocated}/SolarSystemExplorer.exe" --hidden --frames
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT result EQUAL 0 OR NOT output MATCHES "1 texture fallbacks")
     message(FATAL_ERROR "Corrupt texture recovery failed: ${result}\n${output}\n${errors}")
+endif()
+file(WRITE "${relocated}/assets/hud/radar.gif" "GIF89a: incomplete animation")
+execute_process(COMMAND "${relocated}/SolarSystemExplorer.exe" --hidden --frames 3
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT result EQUAL 0 OR NOT output MATCHES "HUD animations: 1 ready")
+    message(FATAL_ERROR "Corrupt HUD animation recovery failed: ${result}\n${output}\n${errors}")
+endif()
+file(COPY_FILE "${SOURCE}/tests/fixtures/unsupported-disposal.gif" "${relocated}/assets/hud/radar.gif")
+execute_process(COMMAND "${relocated}/SolarSystemExplorer.exe" --hidden --frames 3
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+if(NOT result EQUAL 0 OR NOT output MATCHES "HUD animations: 1 ready" OR NOT errors MATCHES "disposal")
+    message(FATAL_ERROR "Unsupported GIF disposal was not rejected safely: ${result}\n${output}\n${errors}")
 endif()
 file(WRITE "${relocated}/shaders/planet.frag" "#version 330 core\nintentionally invalid shader;\n")
 execute_process(COMMAND "${relocated}/SolarSystemExplorer.exe" --hidden --frames 3

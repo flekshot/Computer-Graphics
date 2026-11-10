@@ -34,8 +34,19 @@ void help() {
                  "  --benchmark         Disable VSync, default 600 frames\n"
                  "  --fallback-textures  Exercise procedural missing-texture recovery\n"
                  "  --assets PATH       Resource root containing shaders/ and assets/\n"
+                 "  --lab MODE          explore, orbit, eclipse, or workshop\n"
+                 "  --kind KIND         rocky or gas (opens Planet Workshop)\n"
+                 "  --seed N            Workshop terrain seed (0 .. 999999)\n"
+                 "  --render-mode MODE  shaded, wireframe, or normals\n"
+                 "  --experiment FILE   Load a saved .sselab experiment\n"
+                 "  --eclipse KIND      solar or lunar (opens Eclipse Lab)\n"
+                 "  --eclipse-phase N   Alignment phase offset (-180 .. 180 degrees)\n"
+                 "  --eclipse-tilt N    Orbit inclination (-30 .. 30 degrees)\n"
+                 "  --observer          Use the eclipse observer viewpoint\n"
 #ifdef SSE_WITH_TESTS
                  "  --smoke-test        Run the built-in integration scenario\n"
+                 "  --lab-smoke-test    Exercise orbit, graphics, persistence, and eclipse labs\n"
+                 "  --workshop-smoke-test  Exercise workshop generation, controls, and challenges\n"
 #endif
                  "  --help              Show this help\n";
 }
@@ -63,6 +74,56 @@ int explorerMain(int argc, char** argv) {
                 options.capture = std::filesystem::u8path(value());
             else if (flag == "--assets")
                 options.root = std::filesystem::u8path(value());
+            else if (flag == "--experiment")
+                options.experiment = std::filesystem::u8path(value());
+            else if (flag == "--lab") {
+                const auto mode = value();
+                if (mode == "explore")
+                    options.lab = sse::LabView::Explore;
+                else if (mode == "orbit")
+                    options.lab = sse::LabView::Orbit;
+                else if (mode == "eclipse")
+                    options.lab = sse::LabView::Eclipse;
+                else if (mode == "workshop")
+                    options.lab = sse::LabView::Workshop;
+                else
+                    throw std::invalid_argument("--lab must be explore, orbit, eclipse, or workshop");
+            } else if (flag == "--kind") {
+                const auto kind = value();
+                if (kind != "rocky" && kind != "gas")
+                    throw std::invalid_argument("--kind must be rocky or gas");
+                options.workshopKind = kind == "gas" ? sse::WorkshopKind::Gas : sse::WorkshopKind::Rocky;
+                options.lab = sse::LabView::Workshop;
+            } else if (flag == "--seed") {
+                options.seed = static_cast<uint32_t>(integer(value(), 0, 999999));
+            } else if (flag == "--render-mode") {
+                const auto mode = value();
+                if (mode == "shaded")
+                    options.surfaceMode = sse::SurfaceMode::Shaded;
+                else if (mode == "wireframe")
+                    options.surfaceMode = sse::SurfaceMode::Wireframe;
+                else if (mode == "normals")
+                    options.surfaceMode = sse::SurfaceMode::Normals;
+                else
+                    throw std::invalid_argument("--render-mode must be shaded, wireframe, or normals");
+            } else if (flag == "--eclipse") {
+                const auto kind = value();
+                if (kind != "solar" && kind != "lunar")
+                    throw std::invalid_argument("--eclipse must be solar or lunar");
+                options.lab = sse::LabView::Eclipse;
+                options.lunar = kind == "lunar";
+            } else if (flag == "--eclipse-phase") {
+                const auto phase = number(value());
+                if (phase < -180 || phase > 180)
+                    throw std::invalid_argument("--eclipse-phase outside [-180, 180]");
+                options.eclipsePhase = static_cast<float>(phase);
+            } else if (flag == "--eclipse-tilt") {
+                const auto tilt = number(value());
+                if (tilt < -30 || tilt > 30)
+                    throw std::invalid_argument("--eclipse-tilt outside [-30, 30]");
+                options.eclipseInclination = static_cast<float>(tilt);
+            } else if (flag == "--observer")
+                options.observer = true;
             else if (flag == "--days") {
                 options.days = number(value());
                 if (options.days < 0 || options.days > 1e10)
@@ -95,12 +156,22 @@ int explorerMain(int argc, char** argv) {
 #ifdef SSE_WITH_TESTS
             else if (flag == "--smoke-test")
                 options.smoke = true;
+            else if (flag == "--lab-smoke-test")
+                options.labSmoke = true;
+            else if (flag == "--workshop-smoke-test")
+                options.workshopSmoke = true;
 #endif
             else
                 throw std::invalid_argument("Unknown option: " + flag + " (use --help)");
         }
         if (options.smoke)
             options.frames = 360;
+        if (options.labSmoke)
+            options.frames = 240;
+        if (options.workshopSmoke)
+            options.frames = 240;
+        if (int(options.smoke) + int(options.labSmoke) + int(options.workshopSmoke) > 1)
+            throw std::invalid_argument("Choose only one smoke scenario");
         if (options.frames == 0 && !options.capture.empty())
             options.frames = 180;
         if (options.frames == 0 && options.benchmark)

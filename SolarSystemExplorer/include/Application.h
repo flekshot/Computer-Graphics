@@ -1,5 +1,7 @@
 #pragma once
+#include "LabState.h"
 #include <filesystem>
+#include <optional>
 struct GLFWwindow;
 namespace sse {
 struct Options {
@@ -7,8 +9,14 @@ struct Options {
     double days = 0;
     float speed = 1;
     bool paused = false, noUI = false, noBloom = false, hidden = false, fallback = false, smoke = false,
-         benchmark = false;
-    std::filesystem::path root, capture;
+         benchmark = false, labSmoke = false, workshopSmoke = false;
+    std::optional<LabView> lab;
+    std::optional<SurfaceMode> surfaceMode;
+    std::optional<bool> lunar, observer;
+    std::optional<float> eclipsePhase, eclipseInclination;
+    std::optional<WorkshopKind> workshopKind;
+    std::optional<uint32_t> seed;
+    std::filesystem::path root, capture, experiment;
 };
 class Application {
   public:

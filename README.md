@@ -1,12 +1,14 @@
 # Solar System Explorer
 
-**An interactive desktop planetarium built with C++17 and OpenGL 3.3.**
+**An interactive desktop planetarium with orbit, graphics, and eclipse laboratories, built with C++17 and OpenGL 3.3.**
 
 Explore the Sun and all eight planets, follow Earth and its Moon, and take a closer look at Saturn's rings. Adjust the simulation speed, move the camera freely, and learn about each world through planet information panels and an in-app flight manual.
 
+Version **1.2.0** adds a procedural Planet Workshop, five interactive challenges, and an animated observatory interface. Editable elliptical orbits, graphics learning modes, saved experiments, and Eclipse Lab remain available. The original eight-planet system remains the starting point.
+
 **Computer Graphics Fundamentals** · Windows x64 · Offline desktop application
 
-[Team](#project-team) · [Features](#features) · [Gallery](#gallery) · [Build and run](#get-started) · [Controls](#controls) · [Documentation](#project-guide)
+[Team](#project-team) · [Features](#features) · [Laboratories](#interactive-laboratories) · [Gallery](#gallery) · [Build and run](#get-started) · [Controls](#controls) · [Documentation](#project-guide)
 
 ![Solar System Explorer overview](SolarSystemExplorer/docs/screenshots/overview.png)
 
@@ -33,7 +35,7 @@ The application runs locally without an internet connection. Dependency source c
 
 - **The complete planetary system:** the Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune, with individual textures and orbital and rotation parameters.
 - **Earth and the Moon:** a Moon that travels with Earth while keeping its own orbit independent of Earth's surface rotation.
-- **Continuous animation:** inclined circular orbits and axial rotation evaluated from a shared simulation clock.
+- **Continuous animation:** the default inclined circular orbits and axial rotation use a shared simulation clock; edited elliptical orbits follow Kepler's equation with varying speed.
 - **Time controls:** pause and resume, or change speed from 0.05× to 100×. At 1×, one real second advances six simulated days.
 
 ### Lighting and visual effects
@@ -52,6 +54,40 @@ The application runs locally without an internet connection. Dependency source c
 - Read planet facts, adjust time, and toggle orbits, labels, and bloom through a Dear ImGui interface.
 - Return to the system overview or open the flight manual at any point.
 
+## Interactive laboratories
+
+Use the top navigation to move between **Explore**, **Orbit Lab**, **Eclipse Lab**, and **Workshop**. Explore and Orbit Lab share the same eight-planet system, so orbit edits remain visible when switching between them. **Reset experiment** restores the original orbits, time, lighting, and eclipse settings and pauses the system.
+
+### Orbit Lab
+
+Choose a planet on the left, then use the **Orbit** tab on the right to edit its semi-major axis, eccentricity, inclination, orbital period, and initial phase. **Try elliptical orbit** prepares a paused example and enables the overlays. Resume time to see the planet move faster near periapsis and slower near apoapsis, or enter a simulation day and press Enter to seek and pause.
+
+The recent trajectory shows the preceding part of the orbit, and the velocity arrow shows its current direction with a length scaled for visibility. **Green** marks periapsis; **orange** marks apoapsis. Distances are scene units, the period is independently editable, and validation keeps periapsis outside the Sun.
+
+### Graphics learning modes
+
+In Orbit Lab's **Graphics** tab, select **Shaded**, **Wireframe**, or **World normals**. Wireframe reveals the actual indexed triangle mesh. World normals encodes surface directions as RGB and adds short normal-direction lines on the selected planet. In Shaded mode, adjust ambient, diffuse, and specular multipliers independently; bloom and exposure are also available.
+
+### Eclipse Lab
+
+This separate illustrative scene compares **solar** and **lunar** eclipses in two stacked views: system geometry above, and a larger target-surface detail below. **Observer viewpoint** changes the lower view. Adjust phase from −180° to 180° and inclination from −30° to 30°, or choose **Total alignment**, **Partial alignment**, and **Clear of shadow**. Animate the alignment with its own degrees-per-second control.
+
+Purple lines mark the umbra boundary; amber lines mark the penumbra boundary. The visible-sunlight percentage samples the target's Sun-facing surface center, so other points can have a different view. This demonstrates shadow geometry on an illustrative scale, with no prediction of real eclipse dates.
+
+### Planet Workshop and the refreshed interface
+
+Build a rocky world or gas giant from a reproducible seed. Change terrain, oceans, ice, bands, colors, clouds, and atmosphere, then inspect the actual mesh in wireframe or normal mode. Five challenges guide experiments across Workshop, Orbit Lab, and Eclipse Lab. Check each challenge explicitly; completed progress is saved with the experiment.
+
+The interface uses a graphite, white and red sci-fi HUD with angular frames, scan lines, animated signal bars and flowing text highlights. Downloaded radar and Earth-rotation GIFs play locally without an internet connection; their authors and licenses are recorded in [third-party credits](SolarSystemExplorer/THIRD_PARTY_NOTICES.md). Turn off **Motion** in the header to freeze the decorative effects and GIFs. Camera and simulation motion remain independently controlled.
+
+Workshop tools are grouped into **Shape**, **Surface** and **Air** tabs. **View** offers a clean view (also **F10**), optional reference-feed cards, and 100-200% interface scaling that fits the window. Explore fades orbit lines for close-ups; labels remain bright. Workshop and Eclipse share multisample rendering, with linear-light cloud/atmosphere blending and exposure-independent normal diagnostics.
+
+### Save and load experiments
+
+**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, and challenge progress. New files use `SSELAB 2`; existing version 1 files still open. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
+
+Start with the bundled [elliptical Mars](SolarSystemExplorer/examples/elliptical-mars.sselab), [solar eclipse](SolarSystemExplorer/examples/solar-eclipse.sselab), [lunar eclipse](SolarSystemExplorer/examples/lunar-eclipse.sselab), [ocean world](SolarSystemExplorer/examples/ocean-world.sselab), or [banded giant](SolarSystemExplorer/examples/banded-giant.sselab) experiments. Open them with **Load...** or pass their path to `--experiment`.
+
 ## Gallery
 
 These screenshots were captured from the application.
@@ -60,6 +96,21 @@ These screenshots were captured from the application.
 | --- | --- |
 | ![Earth and Moon in Solar System Explorer](SolarSystemExplorer/docs/screenshots/earth.png) | ![Saturn and its rings in Solar System Explorer](SolarSystemExplorer/docs/screenshots/saturn.png) |
 | Surface detail, cloud layers, atmospheric glow, and the lunar companion. | Textured rings, transparency, and sunlight interacting with the planet. |
+
+| Orbit Lab | World normals |
+| --- | --- |
+| ![Orbit Lab with trajectory and orbit controls](SolarSystemExplorer/docs/screenshots/orbit-lab.png) | ![World-normal surface visualization in Orbit Lab](SolarSystemExplorer/docs/screenshots/normals-lab.png) |
+| Editable trajectories, velocity, and periapsis/apoapsis overlays. | Surface directions encoded as color, with normal-direction lines. |
+
+| Solar eclipse | Lunar eclipse |
+| --- | --- |
+| ![Solar eclipse geometry and Earth detail](SolarSystemExplorer/docs/screenshots/solar-eclipse.png) | ![Lunar eclipse geometry and Moon detail](SolarSystemExplorer/docs/screenshots/lunar-eclipse.png) |
+| The Moon blocks sunlight reaching Earth. | Earth blocks sunlight reaching the Moon. |
+
+| Planet Workshop | Procedural gas giant |
+| --- | --- |
+| ![Procedural rocky world in the refreshed interface](SolarSystemExplorer/docs/screenshots/workshop.png) | ![Procedural gas giant and saved challenges](SolarSystemExplorer/docs/screenshots/workshop-gas.png) |
+| Shape terrain, oceans, clouds and atmosphere from a reproducible seed. | Experiment with bands, turbulence, palettes and explicitly checked challenges. |
 
 ## Technology stack
 
@@ -114,14 +165,14 @@ Alternatively, run `BuildAndRun.bat` inside `SolarSystemExplorer/` to configure,
 | W / A / S / D | Pan the camera |
 | 1–8 | Select a planet |
 | F | Refocus the selected planet |
-| Space | Pause or resume time |
+| Space | Pause/resume simulation time, or animate/pause the eclipse alignment |
 | + / − | Change simulation speed |
 | 0 or R | Return to the system overview |
 | Orbits / Labels / Bloom | Toggle the corresponding visual feature |
 | H | Show or hide the flight manual |
 | Esc | Exit; while editing a numeric field, cancel that edit first |
 
-Camera gestures apply over the scene. UI interaction is handled separately, and Tab and arrow keys can navigate interface controls.
+Camera gestures and planet shortcuts apply in Explore and Orbit Lab. Eclipse Lab uses its own fixed geometry/detail views and observer toggle. UI interaction is handled separately, and Tab and arrow keys can navigate interface controls. In Orbit Lab, returning to overview keeps the selected planet available for editing.
 
 ## Project structure
 
@@ -133,6 +184,7 @@ SolarSystemExplorer/
 ├── include/             Class interfaces and resource wrappers
 ├── shaders/             GLSL vertex and fragment shaders
 ├── assets/              Texture maps, fonts, and asset provenance
+├── examples/            Saved orbit and eclipse experiments
 ├── tests/               CPU, rendering, and resource recovery checks
 ├── third_party/         Bundled dependency sources and version manifest
 ├── docs/                Technical explanation, demo, testing notes, screenshots
@@ -153,8 +205,11 @@ SolarSystemExplorer/
 | `Mesh` / `Shader` / `Texture` / `GLObject` | Manage geometry buffers, shader programs, textures, and GPU resource lifetime |
 | `Renderer` | Draws opaque and transparent objects, resolves MSAA, and applies bloom and tone mapping |
 | `UIManager` | Builds the controls, information panels, help, and projected labels |
+| `LabUI` / `LabState` | Present laboratory tools and share orbit-view, graphics, and eclipse settings |
+| `EclipseModel` / `EclipseRenderer` | Calculate occlusion and draw the separate eclipse scene in two views |
+| `ExperimentIO` / `ExperimentDialogs` | Validate and save/load experiment state through native file dialogs |
 
-Each frame processes input, updates the simulation and camera, renders the scene, applies post-processing, and draws the interface. A shared sphere mesh is reused for celestial bodies, and static geometry and textures are uploaded during initialization.
+In Explore and Orbit Lab, each frame processes input, updates the simulation and camera, renders the scene, applies post-processing, and draws the interface. A shared sphere mesh is reused for celestial bodies. Eclipse Lab renders a separate scene and advances only its own alignment animation; the eight-planet clock waits until you return.
 
 ## Command-line examples
 
@@ -167,6 +222,17 @@ After building with the `vs2022` preset, run these commands from `SolarSystemExp
 # Capture Saturn after the camera settles
 .\build\vs2022\Release\SolarSystemExplorer.exe --planet saturn --paused --capture .\build\vs2022\saturn.png
 
+# Open the orbit editor or inspect surface normals
+.\build\vs2022\Release\SolarSystemExplorer.exe --lab orbit --planet mars --paused
+.\build\vs2022\Release\SolarSystemExplorer.exe --lab orbit --planet earth --render-mode normals --paused
+
+# Load the bundled elliptical-orbit experiment
+.\build\vs2022\Release\SolarSystemExplorer.exe --experiment .\examples\elliptical-mars.sselab
+
+# Compare a partial solar alignment and the lunar observer view
+.\build\vs2022\Release\SolarSystemExplorer.exe --eclipse solar --eclipse-phase 8 --paused
+.\build\vs2022\Release\SolarSystemExplorer.exe --eclipse lunar --observer --paused
+
 # Run a fixed-length benchmark with VSync disabled
 .\build\vs2022\Release\SolarSystemExplorer.exe --benchmark --frames 1200
 
@@ -174,17 +240,17 @@ After building with the `vs2022` preset, run these commands from `SolarSystemExp
 .\build\vs2022\Release\SolarSystemExplorer.exe --help
 ```
 
-Captures default to 180 frames to allow the camera to settle. Benchmark results depend on the GPU, driver, and window size; the [full usage guide](SolarSystemExplorer/README.md#testing-and-screenshots) explains the timing and capture options.
+Captures default to 180 frames to allow the camera to settle. Use `--experiment` followed by the path to a saved `.sselab` file to reopen an experiment from the command line. Benchmark results depend on the GPU, driver, and window size; the [full usage guide](SolarSystemExplorer/README.md#testing-and-screenshots) explains the timing and capture options.
 
 ## Educational scope
 
-The simulation uses illustrative scales so the whole system remains practical to explore. Planet sizes and orbital distances are compressed separately, orbits are circular with small inclinations, and initial positions are illustrative. Relative orbital periods are preserved, while axial spin is slowed for readability.
+The simulation uses illustrative scales so the whole system remains practical to explore. Planet sizes and orbital distances are compressed separately, default orbits are circular with small inclinations, and initial positions are illustrative. Default orbital periods preserve real relative ratios, while axial spin is slowed for readability. Orbit Lab adds Keplerian ellipses, but independently editable size and period do not enforce a common gravitational parameter.
 
-Lighting is also simplified: the Sun provides a point light, and ambient illumination keeps dark surfaces visible. Gravitational interactions, orbital eccentricity, and precision ephemeris prediction are outside the current model. These choices support the project's focus on graphics, transformations, animation, and interaction.
+Lighting is also simplified: the main system uses a Sun-centered point light and ambient illumination. Eclipse Lab instead models the Sun's apparent disk and approximates its occlusion using overlap of circles in angular coordinates, checked numerically against spherical-cap integration. It uses a separate coherent illustrative scale. Neither laboratory performs an N-body gravitational simulation or predicts real-calendar positions, eclipses, or atmospheric scattering.
 
 ## Testing and troubleshooting
 
-The repository includes checks for orbital motion, pause and speed controls, the Earth-Moon hierarchy, geometry generation, camera behavior, OpenGL rendering, and resource recovery. From `SolarSystemExplorer/`, after a Release build:
+The repository includes checks for circular and elliptical motion, velocity, pause and speed controls, the Earth-Moon hierarchy, geometry generation, camera behavior, experiment persistence, eclipse geometry, OpenGL rendering, and resource recovery. From `SolarSystemExplorer/`, after a Release build:
 
 ```powershell
 ctest --preset release
@@ -203,7 +269,7 @@ Graphics checks need a real OpenGL context even when the window is hidden. The [
 | --- | --- |
 | [Application guide](SolarSystemExplorer/README.md) | Detailed setup, controls, command-line options, and troubleshooting |
 | [Project explanation](SolarSystemExplorer/docs/PROJECT_EXPLANATION.md) | Geometry, matrices, orbit mathematics, lighting, camera behavior, and rendering |
-| [Demo script](SolarSystemExplorer/docs/DEMO_SCRIPT.md) | A guided 3–5 minute presentation of the application |
+| [Demo script](SolarSystemExplorer/docs/DEMO_SCRIPT.md) | A five-minute walkthrough of exploration, the laboratories, and saved experiments |
 | [Testing notes](SolarSystemExplorer/docs/TESTING.md) | Recorded build and runtime checks, environment, and verification limits |
 | [Third-party acknowledgements](SolarSystemExplorer/THIRD_PARTY_NOTICES.md) | Library, texture, and font attribution |
 
