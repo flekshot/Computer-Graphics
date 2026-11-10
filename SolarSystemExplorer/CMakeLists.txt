@@ -33,7 +33,7 @@ target_include_directories(sse_core PUBLIC include)
 target_link_libraries(sse_core PUBLIC glm)
 add_executable(SolarSystemExplorer src/main.cpp src/Application.cpp src/Shader.cpp src/Mesh.cpp src/Texture.cpp
     src/Renderer.cpp src/UIManager.cpp src/LabUI.cpp src/EclipseRenderer.cpp src/ExperimentDialogs.cpp
-    src/WorkshopRenderer.cpp src/WorkshopUI.cpp)
+    src/WorkshopRenderer.cpp src/WorkshopUI.cpp src/UIEffects.cpp src/AnimatedTexture.cpp src/HudUI.cpp)
 target_include_directories(SolarSystemExplorer PRIVATE include third_party/stb)
 target_compile_definitions(SolarSystemExplorer PRIVATE
     GLFW_INCLUDE_NONE NOMINMAX WIN32_LEAN_AND_MEAN

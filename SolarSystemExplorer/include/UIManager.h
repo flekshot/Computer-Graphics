@@ -4,9 +4,11 @@
 #include <filesystem>
 #include <array>
 #include <string>
+#include <memory>
 struct GLFWwindow;
 struct ImFont;
 namespace sse {
+class AnimatedTexture;
 struct UIActions {
     int select = -2;
     bool reset = false, refocus = false;
@@ -37,6 +39,8 @@ class UIManager {
     void workshopControls(LabState& lab, RenderSettings& settings);
     void missionControls(SolarSystem& system, RenderSettings& settings, LabState& lab, int selected);
     void labMessage();
+    void animatedHeading(const char* text);
+    void hudOverlay();
     ImFont *body_ = nullptr, *heading_ = nullptr, *hero_ = nullptr;
     bool glfwReady_ = false, glReady_ = false, help_ = false;
     std::string labMessage_;
@@ -46,7 +50,9 @@ class UIManager {
     float navigationPosition_ = 0;
     float reveal_ = 1;
     float ambientPhase_ = 0;
+    float selectionBurst_ = 0;
     int previousView_ = -1, previousSelection_ = -2;
     std::array<float, 8> destinationGlow_{};
+    std::unique_ptr<AnimatedTexture> radarAnimation_, globeAnimation_;
 };
 } // namespace sse

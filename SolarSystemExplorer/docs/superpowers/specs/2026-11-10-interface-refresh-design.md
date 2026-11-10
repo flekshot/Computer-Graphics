@@ -9,3 +9,9 @@ Motion answers actions: a sliding mode indicator, eased destination selection/ho
 Repair incomplete Workshop integration rather than remove the already-declared mode and tests. Implement its existing design, version 2 experiment persistence with version 1 compatibility, CLI overrides, independent preview camera and challenge checks. Repair cloud rotation continuity, eclipse projection for portrait windows, and inconsistent overview navigation. An accidental duplicate GLEW global declaration must be removed for compilation; leave all other bundled dependency code intact.
 
 Verification: run the complete Release CTest suite, test actual ImGui navigation/animation/input ownership through the integration scenarios, inspect framebuffer captures for all four modes at normal and compact sizes, and obtain an independent final review. No publishing, commits or unrelated new features are part of this task.
+
+## Reference-driven HUD follow-up
+
+The user supplied a black/white/red sci-fi instrument display and explicitly requested internet GIFs. This replaces the original navy/aqua visual direction with graphite panels, angular brackets, scan lines, segmented tracking rings and red/white spectral text. Keep the same control positions and readable body text. Vector ornaments remain draw-only and bounded; large radar/Earth feed cards disappear at compact sizes while small animated icons remain.
+
+Bundle the unchanged public-domain Flyingidiot radar GIF and Marvel Earth-rotation GIF under CC BY-SA 3.0, with provenance, checksums, license text and runtime monochrome-display attribution. Decode through the existing stb library with strict byte/dimension/frame/memory limits, upload only the current frame to a reused GPU texture, and freeze GIF playback when Motion is disabled. Missing/corrupt or unsupported animations use a vector fallback. GIFs are illustrative/reference loops and must not be presented as live astronomical observations.

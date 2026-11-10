@@ -153,7 +153,7 @@ int Application::run() {
         if (options_.labSmoke)
             labSmokeFrame(frame, window_, system, camera, settings, lab, selected, select);
         if (options_.workshopSmoke)
-            workshopSmokeFrame(frame, window_, system, settings, lab);
+            workshopSmokeFrame(frame, window_, system, settings, lab, options_.root);
 #endif
         int width = 0, height = 0;
         glfwGetFramebufferSize(window_, &width, &height);
@@ -173,7 +173,7 @@ int Application::run() {
         const bool escapeOwnedByUI = ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive();
         UIActions action;
         if (!options_.noUI)
-            action = ui.draw(system, camera, settings, selected, lab);
+            action = ui.draw(system, lab.view == LabView::Workshop ? workshopCamera : camera, settings, selected, lab);
         if (action.select != -2)
             select(action.select);
         if (action.reset) {

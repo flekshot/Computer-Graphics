@@ -2,17 +2,46 @@
 #include "ExperimentIO.h"
 #include "Missions.h"
 #include "WorkshopModel.h"
+#include "AnimatedTexture.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 namespace sse {
-void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSettings& settings, LabState& lab) {
+namespace {
+std::vector<ImU32> headerTitleColors() {
+    const auto* header = ImGui::FindWindowByName("Top");
+    if (!header)
+        throw std::runtime_error("Workshop smoke: UI header is missing");
+    std::vector<ImU32> colors;
+    // Isolate the title glyphs from the orbital emblem, subtitle, and live status.
+    for (const auto& vertex : header->DrawList->VtxBuffer)
+        if (vertex.pos.x >= 84 && vertex.pos.x < 350 && vertex.pos.y >= 24 && vertex.pos.y < 50)
+            colors.push_back(vertex.col);
+    if (colors.size() < 24)
+        throw std::runtime_error("Workshop smoke: header title glyphs are missing");
+    return colors;
+}
+std::vector<unsigned char> texturePixels(const AnimatedTexture& texture) {
+    GLint previous = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous);
+    glBindTexture(GL_TEXTURE_2D, texture.id());
+    std::vector<unsigned char> pixels(static_cast<size_t>(texture.width()) * texture.height() * 4);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previous));
+    return pixels;
+}
+} // namespace
+
+void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, RenderSettings& settings, LabState& lab,
+                        const std::filesystem::path& root) {
     static float animatedAngle = 0, pausedAngle = 0;
     static ImVec2 pausedMarker;
+    static std::vector<ImU32> animatedTitleColors, pausedTitleColors;
     auto click = [](float x, float y, bool pressed) {
         ImGui::GetIO().AddMousePosEvent(x, y);
         ImGui::GetIO().AddMouseButtonEvent(ImGuiMouseButton_Left, pressed);
@@ -23,6 +52,27 @@ void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Rend
         lab = LabState{};
     }
     if (frame == 2) click(480, 92, true);
+    if (frame == 1) {
+        GLint binding = 0, unpack = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack);
+        AnimatedTexture gif(root / "assets/hud/radar.gif", true);
+        if (!gif.ready() || gif.width() != 236 || gif.height() != 236 || gif.frameCount() != 121)
+            throw std::runtime_error("Workshop smoke: bundled radar GIF did not decode completely");
+        const auto first = texturePixels(gif);
+        gif.update(.9, true);
+        const auto animated = texturePixels(gif);
+        if (animated == first)
+            throw std::runtime_error("Workshop smoke: radar GIF did not advance its displayed frame");
+        gif.update(2.0, false);
+        if (texturePixels(gif) != animated)
+            throw std::runtime_error("Workshop smoke: Motion off changed the GIF frame");
+        GLint afterBinding = 0, afterUnpack = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &afterBinding);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &afterUnpack);
+        if (afterBinding != binding || afterUnpack != unpack)
+            throw std::runtime_error("Workshop smoke: GIF upload changed caller texture state");
+    }
     if (frame == 3) click(480, 92, false);
     if (frame == 5) {
         if (lab.view != LabView::Workshop)
@@ -31,6 +81,18 @@ void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Rend
     }
     if (frame == 15 && (lab.workshop.rotationDegrees <= animatedAngle || system.days() != 12))
         throw std::runtime_error("Workshop smoke: preview clock must run independently of planetary time");
+    if (frame == 6)
+        animatedTitleColors = headerTitleColors();
+    if (frame == 15) {
+        const auto colors = headerTitleColors();
+        if (colors == animatedTitleColors)
+            throw std::runtime_error("Workshop smoke: Motion on did not animate the header title colors");
+        bool multicolored = false;
+        for (const auto color : colors)
+            multicolored |= (color & ~IM_COL32_A_MASK) != (colors.front() & ~IM_COL32_A_MASK);
+        if (!multicolored)
+            throw std::runtime_error("Workshop smoke: header title must display multiple colors");
+    }
     if (frame == 16) ImGui::GetIO().AddKeyEvent(ImGuiKey_Space, true);
     if (frame == 17) ImGui::GetIO().AddKeyEvent(ImGuiKey_Space, false);
     if (frame == 19) {
@@ -123,12 +185,17 @@ void workshopSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Rend
             pausedMarker = marker;
         else if (std::abs(marker.x - pausedMarker.x) + std::abs(marker.y - pausedMarker.y) > .001f)
             throw std::runtime_error("Workshop smoke: Motion off did not stop decorative animation");
+        const auto colors = headerTitleColors();
+        if (frame == 190)
+            pausedTitleColors = colors;
+        else if (colors != pausedTitleColors)
+            throw std::runtime_error("Workshop smoke: Motion off did not freeze the header title colors");
     }
     if (frame == 205) {
         lab.workshop.seed = 71;
         lab.workshop.seaLevel = .7f;
     }
     if (frame == 239)
-        std::cout << "WORKSHOP SMOKE PASS: navigation, independent clock, pause, terrain, gas, normals, wireframe, persistence, challenges, resize, renderer switching\n";
+        std::cout << "WORKSHOP SMOKE PASS: navigation, independent clock, pause, terrain, gas, normals, wireframe, persistence, challenges, resize, renderer switching, animated title colors, reduced motion\n";
 }
 } // namespace sse

@@ -78,7 +78,7 @@ Purple lines mark the umbra boundary; amber lines mark the penumbra boundary. Th
 
 Build a rocky world or gas giant from a reproducible seed. Change terrain, oceans, ice, bands, colors, clouds, and atmosphere, then inspect the actual mesh in wireframe or normal mode. Five challenges guide experiments across Workshop, Orbit Lab, and Eclipse Lab. Check each challenge explicitly; completed progress is saved with the experiment.
 
-The interface now uses floating observatory panels, illustrated planet destinations, an animated mode indicator, smooth selection feedback, and short notifications. Turn off **Motion** in the header for immediate transitions and a still interface. Camera and simulation motion remain independently controlled.
+The interface uses a graphite, white and red sci-fi HUD with angular frames, radar rings, scan lines, animated signal bars and flowing text highlights. Downloaded radar and Earth-rotation GIFs play locally without an internet connection; their authors and licenses are recorded in [third-party credits](SolarSystemExplorer/THIRD_PARTY_NOTICES.md). Turn off **Motion** in the header to freeze the decorative effects and GIFs. Camera and simulation motion remain independently controlled.
 
 ### Save and load experiments
 

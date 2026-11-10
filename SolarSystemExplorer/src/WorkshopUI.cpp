@@ -9,7 +9,7 @@
 
 namespace sse {
 namespace {
-const ImVec4 muted(.51f, .60f, .72f, 1), aqua(.40f, .85f, .82f, 1), warm(1, .70f, .42f, 1);
+const ImVec4 muted(.64f, .68f, .74f, 1), aqua(.96f, .31f, .34f, 1), warm(1, .70f, .42f, 1);
 void section(const char* title) {
     ImGui::Spacing();
     ImGui::Separator();
@@ -47,7 +47,7 @@ const char* missionHint(int index) {
 void UIManager::workshopControls(LabState& lab, RenderSettings& settings) {
     auto& world = lab.workshop;
     ImGui::PushFont(heading_);
-    ImGui::TextUnformatted("Planet\nworkshop");
+    animatedHeading("Planet\nworkshop");
     ImGui::PopFont();
     hint("Shape a world. See every change.");
     ImGui::Spacing();
@@ -158,7 +158,7 @@ void UIManager::missionControls(SolarSystem& system, RenderSettings& settings, L
     const auto& missions = workshopMissions();
     const int completed = int(std::count(lab.missions.completed.begin(), lab.missions.completed.end(), true));
     ImGui::PushFont(heading_);
-    ImGui::TextUnformatted("Challenges");
+    animatedHeading("Challenges");
     ImGui::PopFont();
     ImGui::TextColored(aqua, "%d of 5 complete", completed);
     ImGui::ProgressBar(float(completed) / 5, {-1, 4}, "");
@@ -196,8 +196,8 @@ void UIManager::missionControls(SolarSystem& system, RenderSettings& settings, L
             startMission(active, lab);
             setLabMessage(std::string("Challenge started: ") + missions[size_t(active)].title);
         }
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.12f, .37f, .37f, 1));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.17f, .48f, .47f, 1));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.29f, .075f, .10f, 1));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.39f, .10f, .14f, 1));
         if (ImGui::Button("Check challenge", {-1, 34})) {
             if (completeMission(active, system, settings, lab, selected)) {
                 setLabMessage(std::string("Challenge complete: ") + missions[size_t(active)].title);

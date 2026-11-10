@@ -1,43 +1,64 @@
 #include "UIManager.h"
+#include "UIEffects.h"
+#include "AnimatedTexture.h"
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 #include <stdexcept>
 namespace sse {
 namespace {
-const ImVec4 muted(0.61f, 0.69f, 0.79f, 1), white(0.92f, 0.95f, 0.99f, 1), gold(1.0f, 0.70f, 0.42f, 1),
-    cyan(0.40f, 0.85f, 0.82f, 1);
+const ImVec4 muted(0.64f, 0.68f, 0.74f, 1), white(0.92f, 0.95f, 0.99f, 1), gold(1.0f, 0.70f, 0.42f, 1),
+    cyan(0.96f, 0.31f, 0.34f, 1);
 ImU32 color(glm::vec3 c, int alpha = 255);
 constexpr ImGuiWindowFlags panelFlags =
     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
-void panel(const char* name, ImVec2 pos, ImVec2 size, bool scrollable = true) {
+void panel(const char* name, ImVec2 pos, ImVec2 size, bool scrollable = true, float phase = 0, bool motion = false) {
     ImGui::SetNextWindowPos(pos);
     ImGui::SetNextWindowSize(size);
     ImGui::Begin(name, nullptr,
                  panelFlags |
                      (scrollable ? 0 : ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse));
-    auto* dl = ImGui::GetWindowDrawList();
-    dl->AddLine({pos.x + 20, pos.y + 1}, {pos.x + size.x - 20, pos.y + 1}, IM_COL32(127, 169, 206, 46));
+    ui::technicalFrame(ImGui::GetWindowDrawList(), pos, {pos.x + size.x, pos.y + size.y}, phase, motion,
+                       ImGui::GetStyle().Alpha);
 }
 float ease(float current, float target, float speed, bool motion) {
     return motion ? current + (target - current) * (1.0f - std::exp(-speed * std::min(ImGui::GetIO().DeltaTime, .1f))) : target;
 }
-bool softButton(const char* label, ImVec2 size, bool motion, bool selected = false) {
+bool softButton(const char* label, ImVec2 size, bool motion, bool selected = false, float phase = -1) {
     const auto id = ImGui::GetID(label);
     auto* storage = ImGui::GetStateStorage();
     const float hover = storage->GetFloat(id, 0);
-    const ImVec4 base = selected ? ImVec4(.16f, .31f, .37f, 1) : ImVec4(.09f, .15f, .24f, .85f);
-    const ImVec4 tint(base.x + .045f * hover, base.y + .09f * hover, base.z + .09f * hover, base.w);
+    const ImVec4 base = selected ? ImVec4(.25f, .075f, .09f, 1) : ImVec4(.085f, .10f, .125f, .88f);
+    const ImVec4 tint(base.x + .08f * hover, base.y + .035f * hover, base.z + .035f * hover, base.w);
     ImGui::PushStyleColor(ImGuiCol_Button, tint);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, {.20f, .42f, .46f, 1});
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, {.38f, .10f, .13f, 1});
+    if (selected)
+        ImGui::PushStyleColor(ImGuiCol_Text, {1, 1, 1, 0});
     const bool clicked = ImGui::Button(label, size);
+    const auto minimum = ImGui::GetItemRectMin(), maximum = ImGui::GetItemRectMax();
+    if (selected)
+        ImGui::PopStyleColor();
     storage->SetFloat(id, ease(hover, ImGui::IsItemHovered() ? 1.0f : 0.0f, 14, motion));
     ImGui::PopStyleColor(3);
+    auto* draw = ImGui::GetWindowDrawList();
+    const float time = phase >= 0 ? phase : static_cast<float>(ImGui::GetTime());
+    if (selected || hover > .02f) {
+        ui::lightSweep(draw, minimum, maximum, time, motion, selected ? .65f : hover * .45f);
+        draw->AddRect(minimum, maximum, IM_COL32(245, 79, 87, int((selected ? 110 : 120 * hover) * ImGui::GetStyle().Alpha)), 3);
+    }
+    if (selected) {
+        const auto textSize = ImGui::CalcTextSize(label);
+        ui::spectrumText(draw, ImGui::GetFont(), ImGui::GetFontSize(),
+                         {minimum.x + (maximum.x - minimum.x - textSize.x) * .5f,
+                          minimum.y + (maximum.y - minimum.y - textSize.y) * .5f},
+                         label, time, motion, ImGui::GetStyle().Alpha);
+    }
     return clicked;
 }
 void planetDisc(ImDrawList* dl, ImVec2 center, float radius, glm::vec3 tint, bool rings = false) {
@@ -95,31 +116,31 @@ UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) {
         style.WindowPadding = {18, 16};
         style.FramePadding = {11, 8};
         style.ItemSpacing = {8, 9};
-        style.WindowRounding = 18;
-        style.FrameRounding = 9;
-        style.GrabRounding = 6;
-        style.PopupRounding = 12;
-        style.TabRounding = 7;
+        style.WindowRounding = 3;
+        style.FrameRounding = 3;
+        style.GrabRounding = 2;
+        style.PopupRounding = 4;
+        style.TabRounding = 2;
         style.WindowBorderSize = 1;
         style.FrameBorderSize = 0;
         style.ScrollbarSize = 6;
-        style.Colors[ImGuiCol_WindowBg] = {0.035f, 0.063f, 0.112f, 0.94f};
-        style.Colors[ImGuiCol_PopupBg] = {0.055f, 0.09f, 0.15f, .99f};
-        style.Colors[ImGuiCol_Border] = {0.32f, 0.46f, 0.59f, 0.24f};
+        style.Colors[ImGuiCol_WindowBg] = {0.022f, 0.027f, 0.035f, 0.94f};
+        style.Colors[ImGuiCol_PopupBg] = {0.045f, 0.052f, 0.065f, .99f};
+        style.Colors[ImGuiCol_Border] = {0.43f, 0.47f, 0.53f, 0.30f};
         style.Colors[ImGuiCol_Text] = white;
         style.Colors[ImGuiCol_TextDisabled] = muted;
-        style.Colors[ImGuiCol_Button] = {0.09f, 0.15f, 0.24f, 0.9f};
-        style.Colors[ImGuiCol_ButtonHovered] = {0.15f, 0.29f, 0.36f, 1};
-        style.Colors[ImGuiCol_ButtonActive] = {0.20f, 0.42f, 0.46f, 1};
-        style.Colors[ImGuiCol_FrameBg] = {0.07f, 0.115f, 0.19f, 1};
-        style.Colors[ImGuiCol_FrameBgHovered] = {0.105f, 0.21f, 0.29f, 1};
-        style.Colors[ImGuiCol_FrameBgActive] = {0.14f, 0.30f, 0.35f, 1};
-        style.Colors[ImGuiCol_Header] = {0.12f, 0.24f, 0.30f, .9f};
-        style.Colors[ImGuiCol_HeaderHovered] = {0.15f, 0.29f, 0.36f, 1};
-        style.Colors[ImGuiCol_HeaderActive] = {0.18f, 0.36f, 0.40f, 1};
-        style.Colors[ImGuiCol_Tab] = {.075f, .13f, .21f, 1};
-        style.Colors[ImGuiCol_TabSelected] = {.15f, .29f, .35f, 1};
-        style.Colors[ImGuiCol_TabHovered] = {.19f, .36f, .41f, 1};
+        style.Colors[ImGuiCol_Button] = {.085f, .10f, .125f, .9f};
+        style.Colors[ImGuiCol_ButtonHovered] = {.20f, .10f, .13f, 1};
+        style.Colors[ImGuiCol_ButtonActive] = {.38f, .10f, .13f, 1};
+        style.Colors[ImGuiCol_FrameBg] = {.06f, .072f, .09f, 1};
+        style.Colors[ImGuiCol_FrameBgHovered] = {.13f, .09f, .115f, 1};
+        style.Colors[ImGuiCol_FrameBgActive] = {.22f, .09f, .12f, 1};
+        style.Colors[ImGuiCol_Header] = {.19f, .08f, .11f, .9f};
+        style.Colors[ImGuiCol_HeaderHovered] = {.24f, .10f, .13f, 1};
+        style.Colors[ImGuiCol_HeaderActive] = {.32f, .10f, .14f, 1};
+        style.Colors[ImGuiCol_Tab] = {.065f, .08f, .10f, 1};
+        style.Colors[ImGuiCol_TabSelected] = {.24f, .09f, .12f, 1};
+        style.Colors[ImGuiCol_TabHovered] = {.31f, .11f, .15f, 1};
         style.Colors[ImGuiCol_NavCursor] = cyan;
         style.Colors[ImGuiCol_CheckMark] = cyan;
         style.Colors[ImGuiCol_SliderGrab] = cyan;
@@ -131,6 +152,9 @@ UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) {
         if (!ImGui_ImplOpenGL3_Init("#version 330 core"))
             throw std::runtime_error("ImGui OpenGL backend initialization failed");
         glReady_ = true;
+        radarAnimation_ = std::make_unique<AnimatedTexture>(root / "assets/hud/radar.gif", true);
+        globeAnimation_ = std::make_unique<AnimatedTexture>(root / "assets/hud/earth-rotation.gif", true);
+        std::cout << "HUD animations: " << (int(radarAnimation_->ready()) + int(globeAnimation_->ready())) << " ready\n";
     } catch (...) {
         if (glReady_)
             ImGui_ImplOpenGL3_Shutdown();
@@ -152,6 +176,15 @@ void UIManager::begin() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
+void UIManager::animatedHeading(const char* text) {
+    // Let the native text widget preserve its line baseline, wrapping and layout.
+    ImGui::PushStyleColor(ImGuiCol_Text, {1, 1, 1, 0});
+    ImGui::TextUnformatted(text);
+    ImGui::PopStyleColor();
+    const auto position = ImGui::GetItemRectMin();
+    ui::spectrumText(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize(),
+                     position, text, ambientPhase_ * 2.2f, motion_, ImGui::GetStyle().Alpha);
+}
 UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSettings& settings, int selected,
                           LabState& lab) {
     UIActions actions;
@@ -163,24 +196,31 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         reveal_ = motion_ ? 0.0f : 1.0f;
         previousView_ = currentView;
         previousSelection_ = selected;
+        selectionBurst_ = motion_ ? 1.0f : 0.0f;
     }
     reveal_ = ease(reveal_, 1, 10, motion_);
+    selectionBurst_ = ease(selectionBurst_, 0, 3.5f, motion_);
     if (motion_)
         ambientPhase_ += std::min(ImGui::GetIO().DeltaTime, .1f) * .45f;
+    if (radarAnimation_) radarAnimation_->update(ambientPhase_ / .45, motion_);
+    if (globeAnimation_) globeAnimation_->update(ambientPhase_ / .45, motion_);
     navigationPosition_ = ease(navigationPosition_, currentView * 128.0f, 16, motion_);
-    panel("Top", {16, 12}, {size.x - 32, top - 12}, false);
+    panel("Top", {16, 12}, {size.x - 32, top - 12}, false, ambientPhase_ * 2.2f, motion_);
     auto* draw = ImGui::GetWindowDrawList();
     const ImVec2 emblem(52, 40);
     draw->AddCircleFilled(emblem, 9, IM_COL32(255, 179, 107, 255));
+    if (globeAnimation_ && globeAnimation_->ready())
+        draw->AddImage(static_cast<ImTextureID>(globeAnimation_->id()), {emblem.x - 11, emblem.y - 11},
+                       {emblem.x + 11, emblem.y + 11}, {0, 0}, {1, 1}, IM_COL32(228, 237, 247, 255));
     draw->AddEllipse(emblem, {22, 12}, IM_COL32(144, 185, 210, 155), -.45f, 48, 1);
     draw->AddCircleFilled({emblem.x + 22 * std::cos(ambientPhase_), emblem.y + 12 * std::sin(ambientPhase_)},
                           3, IM_COL32(102, 218, 209, 255));
     ImGui::SetCursorPos({68, 12});
     ImGui::PushFont(heading_);
-    ImGui::TextUnformatted("Solar System Explorer");
+    animatedHeading("Solar System Explorer");
     ImGui::PopFont();
     ImGui::SetCursorPos({69, 39});
-    ImGui::TextColored(muted, "Your observatory, beyond Earth");
+    ImGui::TextColored(muted, "MISSION CONTROL  /  PLANETARY OBSERVATORY");
     ImGui::SetCursorPos({size.x - 397, 18});
     const bool running = lab.view == LabView::Eclipse ? lab.eclipse.animate :
                          lab.view == LabView::Workshop ? lab.workshop.animate : !system.paused();
@@ -202,11 +242,11 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     const auto topPosition = ImGui::GetWindowPos();
     const float indicatorX = topPosition.x + 20 + navigationPosition_;
     draw->AddRectFilled({indicatorX + 18, topPosition.y + 96}, {indicatorX + 102, topPosition.y + 99},
-                        IM_COL32(102, 218, 209, 240), 2);
+                        IM_COL32(245, 79, 87, 240), 1);
     ImGui::SetCursorPos({20, 64});
     auto mode = [&](const char* title, LabView view) {
         const bool active = lab.view == view;
-        if (softButton(title, {120, 29}, motion_, active) && !active) {
+        if (softButton(title, {120, 29}, motion_, active, ambientPhase_ * 2.2f) && !active) {
             lab.view = view;
             if (view == LabView::Orbit) {
                 if (selected < 0)
@@ -234,7 +274,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         actions.resetExperiment = true;
     ImGui::End();
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, .60f + .40f * reveal_);
-    panel("Destinations", {16, top + 16}, {left, size.y - top - bottom - 32});
+    panel("Destinations", {16, top + 16}, {left, size.y - top - bottom - 32}, true, ambientPhase_ * 2.2f, motion_);
     if (lab.view == LabView::Eclipse) {
         eclipseControls(lab.eclipse);
     } else if (lab.view == LabView::Workshop) {
@@ -242,13 +282,19 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     } else {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, size.y < 760 ? 5.0f : 9.0f));
     ImGui::PushFont(heading_);
-    ImGui::TextUnformatted("Destinations");
+    animatedHeading("Destinations");
     ImGui::PopFont();
+    if (radarAnimation_ && radarAnimation_->ready()) {
+        const auto windowPosition = ImGui::GetWindowPos();
+        ImGui::GetWindowDrawList()->AddImage(static_cast<ImTextureID>(radarAnimation_->id()),
+            {windowPosition.x + left - 43, windowPosition.y + 15},
+            {windowPosition.x + left - 19, windowPosition.y + 39}, {0, 0}, {1, 1}, IM_COL32(245, 100, 108, 235));
+    }
     if (size.y >= 760) {
         ImGui::TextColored(muted, "Find your next world");
         ImGui::Dummy({0, 6});
     }
-    if (softButton("System overview", {-1, 32}, motion_, camera.followed() < 0)) {
+    if (softButton("System overview", {-1, 32}, motion_, camera.followed() < 0, ambientPhase_ * 2.2f)) {
         if (lab.view == LabView::Orbit) actions.reset = true;
         else actions.select = -1;
     }
@@ -269,11 +315,25 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         if (glow > .01f) {
             dl->AddRectFilled(pos, {pos.x + rowWidth, pos.y + rowHeight}, color(p.data().color, int(26 * glow)), 9);
             dl->AddRect(pos, {pos.x + rowWidth, pos.y + rowHeight}, color(p.data().color, int(110 * glow)), 9);
+            ui::lightSweep(dl, pos, {pos.x + rowWidth, pos.y + rowHeight}, ambientPhase_ * 2.2f + static_cast<float>(i) * .17f,
+                           motion_, glow * .4f);
+            ui::orbitSparkles(dl, pos, {pos.x + rowWidth, pos.y + rowHeight}, ambientPhase_ * 2.2f,
+                              motion_, glow * .65f);
+            if (motion_ && selected == static_cast<int>(i) && selectionBurst_ > .01f) {
+                dl->PushClipRect(pos, {pos.x + rowWidth, pos.y + rowHeight}, true);
+                dl->AddCircle({pos.x + 15, pos.y + rowHeight * .5f}, 10 + (1 - selectionBurst_) * 18,
+                              color(p.data().color, int(160 * selectionBurst_)), 40, 1.2f);
+                dl->PopClipRect();
+            }
         }
         planetDisc(dl, {pos.x + 15, pos.y + rowHeight * .5f}, rowHeight < 30 ? 7.0f : 10.0f,
                    p.data().color, i == 5);
-        dl->AddText({pos.x + 37, pos.y + (rowHeight - 17) * 0.5f}, IM_COL32(234, 242, 252, 255),
-                    p.data().name.c_str());
+        const ImVec2 namePosition(pos.x + 37, pos.y + (rowHeight - 17) * .5f);
+        if (selected == static_cast<int>(i) || hovered)
+            ui::spectrumText(dl, ImGui::GetFont(), ImGui::GetFontSize(), namePosition, p.data().name.c_str(),
+                             ambientPhase_ * 2.2f + static_cast<float>(i) * .17f, motion_, ImGui::GetStyle().Alpha);
+        else
+            dl->AddText(namePosition, IM_COL32(234, 242, 252, 255), p.data().name.c_str());
         char index[4];
         std::snprintf(index, sizeof(index), "%d", static_cast<int>(i) + 1);
         dl->AddText({pos.x + rowWidth - 14, pos.y + (rowHeight - 17) * 0.5f}, IM_COL32(137, 159, 184, 255),
@@ -292,7 +352,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     }
     ImGui::End();
 
-    panel("Object data", {size.x - right - 16, top + 16}, {right, size.y - top - bottom - 32});
+    panel("Object data", {size.x - right - 16, top + 16}, {right, size.y - top - bottom - 32}, true, ambientPhase_ * 2.2f, motion_);
     if (lab.view == LabView::Orbit) {
         orbitPanel(system, settings, selected, actions);
     } else if (lab.view == LabView::Eclipse) {
@@ -304,7 +364,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         eyebrow(data.category.c_str());
         ImGui::Dummy({0, 6});
         ImGui::PushFont(hero_);
-        ImGui::TextUnformatted(data.name.c_str());
+        animatedHeading(data.name.c_str());
         ImGui::PopFont();
         ImGui::TextColored(cyan, camera.followed() == selected ? "Following its journey" : "Ready to explore");
         rule();
@@ -335,7 +395,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         eyebrow("Welcome to your observatory");
         ImGui::Dummy({0, 9});
         ImGui::PushFont(hero_);
-        ImGui::TextUnformatted("Space,\na little\ncloser.");
+        animatedHeading("Space,\na little\ncloser.");
         ImGui::PopFont();
         rule();
         ImGui::PushTextWrapPos(0);
@@ -361,7 +421,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::End();
     ImGui::PopStyleVar();
 
-    panel("Flight controls", {16, size.y - bottom}, {size.x - 32, bottom - 16}, false);
+    panel("Flight controls", {16, size.y - bottom}, {size.x - 32, bottom - 16}, false, ambientPhase_ * 2.2f, motion_);
     if (lab.view == LabView::Eclipse) {
         if (softButton(lab.eclipse.animate ? "Pause" : "Animate", {86, 32}, motion_))
             lab.eclipse.animate = !lab.eclipse.animate;
@@ -407,19 +467,24 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::SameLine(0, 12);
     ImGui::Checkbox("Bloom", &settings.bloom);
     ImGui::SameLine(0, 18);
-    ImGui::TextColored(cyan, "Day %07.1f", system.days());
+    char dayLabel[48];
+    std::snprintf(dayLabel, sizeof(dayLabel), "Day %07.1f", system.days());
+    animatedHeading(dayLabel);
     ImGui::TextColored(
         muted,
         "Drag to orbit   /   Scroll to zoom   /   WASD to pan   /   1-8 to explore   /   Space to pause");
     }
     ImGui::End();
+    hudOverlay();
     const float sceneLeft = left + 54, sceneWidth = size.x - left - right - 108;
     if (lab.view != LabView::Eclipse && sceneWidth > 100) {
         auto* dl = ImGui::GetBackgroundDrawList();
         const char* sceneTitle = lab.view == LabView::Workshop ? "Planet Workshop" :
                                  lab.view == LabView::Orbit ? "An orbit, reimagined" :
                                  selected >= 0 ? system.planets()[selected].data().name.c_str() : "The solar neighborhood";
-        dl->AddText(heading_, 23, {sceneLeft, 139}, IM_COL32(234, 242, 252, int(255 * (.6f + .4f * reveal_))), sceneTitle);
+        ui::spectrumText(dl, heading_, 23, {sceneLeft, 139}, sceneTitle, ambientPhase_ * 2.2f, motion_, .6f + .4f * reveal_);
+        dl->AddLine({sceneLeft, 193}, {sceneLeft + 144, 193}, IM_COL32(102, 218, 209, 55), 1);
+        ui::lightSweep(dl, {sceneLeft, 191}, {sceneLeft + 144, 195}, ambientPhase_ * 2.2f, motion_, .8f);
         const char* sceneHint = lab.view == LabView::Workshop ? "Build a world. Make it your own." :
                                 lab.view == LabView::Orbit ? "Change the orbit. See the mathematics move." :
                                 "Eight worlds. Endless perspectives.";
@@ -440,7 +505,7 @@ void UIManager::helpWindow() {
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::PushFont(heading_);
-        ImGui::TextUnformatted("A universe at your fingertips");
+        animatedHeading("A universe at your fingertips");
         ImGui::PopFont();
         rule();
         ImGui::TextWrapped("Orbit Lab: edit trajectories, seek time, and inspect wireframe or world normals. "

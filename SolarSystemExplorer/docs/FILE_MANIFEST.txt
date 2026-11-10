@@ -1,10 +1,13 @@
 ﻿SOLAR SYSTEM EXPLORER - FILE INVENTORY
 
-Project, assets, examples, licenses and screenshots (134 files)
+Project, assets, examples, licenses and screenshots (144 files)
 .clang-format
 .gitignore
 assets/fonts/LICENSE-Roboto.txt
 assets/fonts/Roboto-Medium.ttf
+assets/hud/earth-rotation.gif
+assets/hud/radar.gif
+assets/hud/SOURCES.json
 assets/textures/earth_clouds.jpg
 assets/textures/earth_daymap.jpg
 assets/textures/earth_nightmap.jpg
@@ -48,6 +51,7 @@ examples/elliptical-mars.sselab
 examples/lunar-eclipse.sselab
 examples/ocean-world.sselab
 examples/solar-eclipse.sselab
+include/AnimatedTexture.h
 include/Application.h
 include/Camera.h
 include/EclipseModel.h
@@ -64,12 +68,14 @@ include/Renderer.h
 include/Shader.h
 include/SolarSystem.h
 include/Texture.h
+include/UIEffects.h
 include/UIManager.h
 include/VisualMath.h
 include/WorkshopModel.h
 include/WorkshopRenderer.h
 LICENSE
 licenses/CC-BY-4.0.txt
+licenses/CC-BY-SA-3.0.txt
 licenses/Dear-ImGui.txt
 licenses/GLEW.txt
 licenses/GLFW.txt
@@ -102,6 +108,7 @@ shaders/star.vert
 shaders/sun.frag
 shaders/workshop.frag
 shaders/workshop.vert
+src/AnimatedTexture.cpp
 src/Application.cpp
 src/Camera.cpp
 src/EclipseModel.cpp
@@ -109,6 +116,7 @@ src/EclipseRenderer.cpp
 src/ExperimentDialogs.cpp
 src/ExperimentIO.cpp
 src/Geometry.cpp
+src/HudUI.cpp
 src/LabUI.cpp
 src/main.cpp
 src/Mesh.cpp
@@ -118,12 +126,14 @@ src/Renderer.cpp
 src/Shader.cpp
 src/SolarSystem.cpp
 src/Texture.cpp
+src/UIEffects.cpp
 src/UIManager.cpp
 src/WorkshopModel.cpp
 src/WorkshopRenderer.cpp
 src/WorkshopUI.cpp
 tests/CoreTests.cpp
 tests/EclipseTests.cpp
+tests/fixtures/unsupported-disposal.gif
 tests/LabSmokeScenario.cpp
 tests/LabSmokeScenario.h
 tests/LabTests.cpp

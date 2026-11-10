@@ -40,3 +40,5 @@
 
 - Final verification: Release build successful without new compiler warnings; CTest 13/13 passed. Reviewed all four modes and compact layouts. Independent review clean after removing duplicate mission evaluation.
 
+- Reference follow-up complete: red/white sci-fi HUD, vector instrument frames/reticles, two locally bundled licensed GIFs and attribution. Full Release suite 13/13 passed after adding actual GIF frame/freeze/state checks and corrupt/unsupported-animation recovery. Focused review found a bundled-decoder disposal limitation, now rejected before decoding with a permanent regression fixture; review is clean.
+

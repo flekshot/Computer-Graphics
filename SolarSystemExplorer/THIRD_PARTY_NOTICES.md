@@ -20,6 +20,13 @@ Downloaded image files are unchanged. Runtime lighting, cloud compositing, bloom
 
 The texture provider explains that the maps use NASA elevation and imagery data, with artistic adjustments and fictional terrain in unmapped areas. Neither NASA nor the texture authors endorse this project.
 
+## HUD animation attribution
+
+The original GIF files in `assets/hud/` are bundled unchanged and play locally without a network connection. Individual source URLs, retrieval dates, checksums and runtime display changes are recorded in `assets/hud/SOURCES.json`.
+
+- **Radar2.gif** by **Flyingidiot** (2007), sourced from https://commons.wikimedia.org/wiki/File:Radar2.gif . The author released the work into the public domain worldwide, with an unrestricted-use grant where dedication is not legally possible. The interface displays a monochrome/red-tinted version.
+- **Rotating earth (large).gif** by **Marvel**, based on NASA imagery, sourced from https://commons.wikimedia.org/wiki/File:Rotating_earth_(large).gif . Used under **Creative Commons Attribution-ShareAlike 3.0 Unported**: https://creativecommons.org/licenses/by-sa/3.0/ . Its original file and monochrome display adaptation remain under that license; a copy is included in `licenses/CC-BY-SA-3.0.txt`. The author does not endorse this project.
+
 ## Redistribution
 
 Keep this notice, all bundled license texts and texture attribution with source and executable distributions. Documentation data is rounded from public NASA planetary information; there is no scientific-accuracy certification.

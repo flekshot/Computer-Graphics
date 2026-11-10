@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "UIEffects.h"
 #include "EclipseModel.h"
 #include <imgui.h>
 #include <algorithm>
@@ -7,7 +8,7 @@
 
 namespace sse {
 namespace {
-const ImVec4 muted(0.48f, 0.57f, 0.68f, 1), cyan(0.45f, 0.80f, 0.94f, 1),
+const ImVec4 muted(0.64f, 0.68f, 0.74f, 1), cyan(0.96f, 0.31f, 0.34f, 1),
     gold(0.98f, 0.73f, 0.39f, 1);
 void section(const char* title) {
     ImGui::Spacing();
@@ -60,7 +61,7 @@ void UIManager::orbitPanel(SolarSystem& system, RenderSettings& settings, int se
     ImGui::TextColored(cyan, "INTERACTIVE LABORATORY");
     if (selected >= 0 && static_cast<size_t>(selected) < system.planets().size()) {
         ImGui::PushFont(heading_);
-        ImGui::TextUnformatted(system.planets()[static_cast<size_t>(selected)].data().name.c_str());
+        animatedHeading(system.planets()[static_cast<size_t>(selected)].data().name.c_str());
         ImGui::PopFont();
         if (ImGui::Button("Focus planet  [F]", {-1, 28}))
             actions.refocus = true;
@@ -215,10 +216,10 @@ void UIManager::eclipseLabels(const LabState& lab) const {
     const float left = (size.x < 1200 ? 202.0f : 222.0f) + 32;
     const float detailTop = 132 + std::max(1.0f, size.y - 244) * 0.38f + 6;
     auto* draw = ImGui::GetBackgroundDrawList();
-    draw->AddText({left + 12, 136}, IM_COL32(116, 204, 240, 255), "SYSTEM GEOMETRY");
+    ui::spectrumText(draw, body_, 16, {left + 12, 136}, "System geometry", ambientPhase_ * 2.2f, motion_);
     const char* title = lab.eclipse.observerView ? "OBSERVER VIEW"
                         : lab.eclipse.lunar ? "MOON / SHADOW DETAIL" : "EARTH / SHADOW DETAIL";
-    draw->AddText({left + 12, detailTop + 8}, IM_COL32(250, 184, 96, 255), title);
+    ui::spectrumText(draw, body_, 16, {left + 12, detailTop + 8}, title, ambientPhase_ * 2.2f + .4f, motion_);
 }
 
 void UIManager::setLabMessage(std::string message, bool error) {
@@ -240,6 +241,9 @@ void UIManager::labMessage() {
     ImGui::Begin("Experiment status", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
+    const auto position = ImGui::GetWindowPos(), windowSize = ImGui::GetWindowSize();
+    ui::lightSweep(ImGui::GetWindowDrawList(), {position.x + 12, position.y + 2},
+                    {position.x + windowSize.x - 12, position.y + 4}, ambientPhase_ * 2.2f, motion_, opacity);
     ImGui::PushStyleColor(ImGuiCol_Text, labMessageError_ ? ImVec4(1, 0.52f, 0.45f, 1) : cyan);
     ImGui::TextWrapped("%s", labMessage_.c_str());
     ImGui::PopStyleColor();

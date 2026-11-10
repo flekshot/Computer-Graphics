@@ -77,7 +77,9 @@ Open **Workshop** for a separate procedural planet preview. Choose an ocean, vol
 
 Choose a challenge on the right, press **Start challenge**, make the requested changes, then press **Check challenge**. Challenges can lead into Orbit Lab or Eclipse Lab; their controls remain available in the right panel. Reset world and Reset experiment preserve completed progress; **Reset challenge progress...** is a separate deliberate action.
 
-The header's **Motion** checkbox stops decorative interface motion and makes its transitions immediate. Simulation and camera controls remain independent. This interface preference lasts for the current session.
+The interface follows a graphite, white and red science-fiction HUD: angular instrument frames, scan lines, a segmented tracking reticle, signal strips and flowing text highlights. Two downloaded GIFs supply a radar sweep and an Earth-rotation reference. They are bundled in `assets/hud/` and play offline; source and license credits are in `THIRD_PARTY_NOTICES.md` and `assets/hud/SOURCES.json`.
+
+The header's **Motion** checkbox stops decorative interface motion, freezes GIF playback and makes transitions immediate. Simulation and camera controls remain independent. This interface preference lasts for the current session. Large reference-feed cards appear at taller window sizes; compact layouts keep the small header/destination animations and all eight planet entries visible.
 
 Start with [Ocean world](examples/ocean-world.sselab) or [Banded giant](examples/banded-giant.sselab).
 
@@ -205,6 +207,7 @@ Eclipse Lab uses its own consistent illustrative Sun–Earth–Moon scale and fi
 | `EclipseModel`, `EclipseRenderer` | CPU occlusion geometry and the separate two-view eclipse renderer |
 | `WorkshopModel`, `Missions` | Deterministic terrain, presets, area estimates, and challenge predicates |
 | `WorkshopRenderer`, `WorkshopUI` | Separate planet preview and workshop/challenge controls |
+| `AnimatedTexture`, `UIEffects`, `HudUI` | Bounded local GIF playback and native sci-fi HUD decoration |
 | `ExperimentIO`, `ExperimentDialogs` | Validated `.sselab` serialization and native Windows file dialogs |
 | `shaders/` | GLSL programs for the main scene, graphics diagnostics, and eclipse views |
 | `assets/` | 14 local surface/environment maps, Roboto font and provenance |
