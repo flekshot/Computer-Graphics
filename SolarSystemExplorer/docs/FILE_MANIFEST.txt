@@ -1,6 +1,6 @@
 SOLAR SYSTEM EXPLORER - FILE INVENTORY
 
-Project, assets, examples, licenses and screenshots (156 files)
+Project, assets, examples, licenses and screenshots (160 files)
 .clang-format
 .gitignore
 BuildAndRun.bat
@@ -36,13 +36,17 @@ docs/PROJECT_EXPLANATION.md
 docs/REVIEW_NOTES.md
 docs/TESTING.md
 docs/USER_REQUIREMENTS.txt
+docs/screenshots/comet-bezier.png
 docs/screenshots/earth.png
+docs/screenshots/gouraud-low-poly.png
 docs/screenshots/lunar-eclipse.png
 docs/screenshots/normals-lab.png
 docs/screenshots/orbit-lab.png
+docs/screenshots/orthographic.png
 docs/screenshots/overview.png
 docs/screenshots/saturn.png
 docs/screenshots/solar-eclipse.png
+docs/screenshots/stencil-outline.png
 docs/screenshots/workshop-compact.png
 docs/screenshots/workshop-gas.png
 docs/screenshots/workshop.png

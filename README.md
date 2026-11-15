@@ -121,6 +121,16 @@ These screenshots were captured from the application.
 | ![Procedural rocky world in the refreshed interface](SolarSystemExplorer/docs/screenshots/workshop.png) | ![Procedural gas giant and saved challenges](SolarSystemExplorer/docs/screenshots/workshop-gas.png) |
 | Shape terrain, oceans, clouds and atmosphere from a reproducible seed. | Experiment with bands, turbulence, palettes and explicitly checked challenges. |
 
+| Bézier comet | Orthographic projection |
+| --- | --- |
+| ![Comet on its Bezier loop with the control polygon](SolarSystemExplorer/docs/screenshots/comet-bezier.png) | ![Orthographic overview with the comet near perihelion](SolarSystemExplorer/docs/screenshots/orthographic.png) |
+| A closed cubic Bézier loop with anchors, handles, an ion tail and a curved dust tail. | A parallel projection: no foreshortening, sized to match the focus distance. |
+
+| Stencil outline | Gouraud on a low-poly sphere |
+| --- | --- |
+| ![Stencil-buffer outline around Saturn](SolarSystemExplorer/docs/screenshots/stencil-outline.png) | ![Gouraud shading on low-poly Earth and Moon](SolarSystemExplorer/docs/screenshots/gouraud-low-poly.png) |
+| The selected planet is marked in the stencil buffer and outlined in a second pass. | Per-vertex lighting on a 16 × 8 mesh; compare with Phong using the G key. |
+
 ## Technology stack
 
 | Technology | Purpose |
