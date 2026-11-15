@@ -23,7 +23,7 @@ class UIManager {
     void begin();
     UIActions draw(SolarSystem& system, const Camera& camera, RenderSettings& settings, int selected,
                    LabState& lab);
-    void labels(const SolarSystem& system, const Camera& camera, int selected) const;
+    void labels(const SolarSystem& system, const Camera& camera, int selected, bool comet = false) const;
     void eclipseLabels(const LabState& lab) const;
     void setLabMessage(std::string message, bool error = false);
     void finish(bool visible = true);

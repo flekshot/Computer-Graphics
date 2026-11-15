@@ -33,6 +33,7 @@ struct RenderSettings {
     SurfaceMode surfaceMode = SurfaceMode::Shaded;
     float ambient = 1.0f, diffuse = 1.0f, specular = 1.0f;
     bool trails = false, velocityVectors = false, apsides = false;
+    bool comet = true, bezierControl = false;
 };
 
 struct EclipseSettings {

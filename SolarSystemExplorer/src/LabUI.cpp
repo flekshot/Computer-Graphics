@@ -55,6 +55,15 @@ void UIManager::graphicsControls(RenderSettings& settings) {
     ImGui::EndDisabled();
     if (ImGui::Button("Reset lighting", {-1, 28}))
         settings.ambient = settings.diffuse = settings.specular = 1;
+    section("COMET & BEZIER CURVES");
+    ImGui::Checkbox("Comet  [C]", &settings.comet);
+    ImGui::BeginDisabled(!settings.comet);
+    ImGui::Checkbox("Bezier control polygon  [B]", &settings.bezierControl);
+    ImGui::EndDisabled();
+    hint(settings.bezierControl
+             ? "White crosses are anchors, orange crosses are handles. The path is four cubic segments "
+               "evaluated with De Casteljau's algorithm; collinear handles keep it C1-smooth."
+             : "The comet follows a closed cubic Bezier loop and speeds up near the Sun (vis-viva).");
 }
 
 void UIManager::orbitPanel(SolarSystem& system, RenderSettings& settings, int selected, UIActions& actions) {

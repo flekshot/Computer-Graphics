@@ -254,6 +254,12 @@ int Application::run() {
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                 system.setPaused(!system.paused());
+            if (ImGui::IsKeyPressed(ImGuiKey_C, false))
+                settings.comet = !settings.comet;
+            if (ImGui::IsKeyPressed(ImGuiKey_B, false)) {
+                settings.bezierControl = !settings.bezierControl;
+                settings.comet = settings.comet || settings.bezierControl;
+            }
             if (ImGui::IsKeyPressed(ImGuiKey_Equal) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd))
                 system.setSpeed(system.speed() * 1.4f);
             if (ImGui::IsKeyPressed(ImGuiKey_Minus) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract))
@@ -325,7 +331,7 @@ int Application::run() {
         } else {
             renderer.render(system, camera, settings, selected, static_cast<float>(now), lab.view == LabView::Explore);
             if (settings.labels && !options_.noUI)
-                ui.labels(system, camera, selected);
+                ui.labels(system, camera, selected, settings.comet);
         }
         ui.finish(!options_.noUI);
         if (!options_.capture.empty() && frame + 1 == options_.frames)

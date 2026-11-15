@@ -19,6 +19,8 @@
 namespace sse {
 namespace {
 constexpr size_t diagnosticCapacity = 2048;
+constexpr int ionParticles = 80, dustParticles = 110;
+constexpr size_t cometTailCapacity = ionParticles + dustParticles;
 // The scene temporarily changes rasterization for its diagnostic views. Fullscreen
 // passes always use filled triangles, and callers keep their original raster state.
 class RasterState {
@@ -62,7 +64,8 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
       blur_(root / "shaders/fullscreen.vert", root / "shaders/blur.frag"),
       composite_(root / "shaders/fullscreen.vert", root / "shaders/composite.frag"),
       debugSurface_(root / "shaders/planet.vert", root / "shaders/debug_surface.frag"),
-      debugLines_(root / "shaders/debug_lines.vert", root / "shaders/debug_lines.frag"), sphere_(makeSphere()),
+      debugLines_(root / "shaders/debug_lines.vert", root / "shaders/debug_lines.frag"),
+      cometTail_(root / "shaders/comet_tail.vert", root / "shaders/comet_tail.frag"), sphere_(makeSphere()),
       annulus_(makeAnnulus(1.25f, 2.3f)), orbitMesh_(makeOrbit(), GL_LINE_LOOP),
       stars_(makeStars(), GL_POINTS),
       sunMap_(root / (forceFallback ? "missing/sun" : "assets/textures/sun.jpg"), "Sun"),
@@ -93,8 +96,55 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
                           reinterpret_cast<void*>(offsetof(DiagnosticVertex, color)));
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    {
+        // Static geometry for the comet's Bezier path: the sampled curve, its
+        // closed control polygon, and a cross marker at every control point.
+        const auto& path = system.comet().path();
+        std::vector<DiagnosticVertex> vertices;
+        for (const auto& point : path.sample(64))
+            vertices.push_back({point, {0.45f, 0.78f, 1.0f, 0.42f}});
+        cometPathCount_ = static_cast<GLsizei>(vertices.size());
+        const auto polygon = path.controlPolygon();
+        for (const auto& point : polygon)
+            vertices.push_back({point, {1.0f, 0.62f, 0.25f, 0.85f}});
+        cometPolygonCount_ = static_cast<GLsizei>(polygon.size());
+        for (size_t i = 0; i < polygon.size(); ++i) {
+            const bool anchor = i % 3 == 0;
+            const float size = anchor ? 0.9f : 0.6f;
+            const glm::vec4 color = anchor ? glm::vec4(1.0f) : glm::vec4(1.0f, 0.62f, 0.25f, 1.0f);
+            for (const glm::vec3 axis : {glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)}) {
+                vertices.push_back({polygon[i] - axis * size, color});
+                vertices.push_back({polygon[i] + axis * size, color});
+            }
+        }
+        cometMarkerCount_ = static_cast<GLsizei>(polygon.size() * 6);
+        glBindVertexArray(cometPathVao_.id());
+        glBindBuffer(GL_ARRAY_BUFFER, cometPathVbo_.id());
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(DiagnosticVertex), vertices.data(), GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DiagnosticVertex),
+                              reinterpret_cast<void*>(offsetof(DiagnosticVertex, position)));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(DiagnosticVertex),
+                              reinterpret_cast<void*>(offsetof(DiagnosticVertex, color)));
+    }
+    tailVertices_.reserve(cometTailCapacity);
+    glBindVertexArray(cometTailVao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, cometTailVbo_.id());
+    glBufferData(GL_ARRAY_BUFFER, cometTailCapacity * sizeof(TailVertex), nullptr, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(TailVertex),
+                          reinterpret_cast<void*>(offsetof(TailVertex, position)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(TailVertex),
+                          reinterpret_cast<void*>(offsetof(TailVertex, color)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(TailVertex),
+                          reinterpret_cast<void*>(offsetof(TailVertex, size)));
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    std::cout << "Scene initialized: 8 planets, Moon, Saturn rings, 4500 stars; " << fallbackCount_
+    std::cout << "Scene initialized: 8 planets, Moon, Saturn rings, Bezier comet, 4500 stars; " << fallbackCount_
               << " texture fallbacks\n";
 }
 void Renderer::resize(int width, int height) {
@@ -242,6 +292,61 @@ void Renderer::diagnostics(const SolarSystem& system, const glm::mat4& vp, const
     glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(diagnosticVertices_.size()));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
+void Renderer::cometPath(const glm::mat4& vp, const RenderSettings& settings) {
+    if (!settings.comet || (!settings.orbits && !settings.bezierControl))
+        return;
+    debugLines_.use();
+    debugLines_.set("uVP", vp);
+    glBindVertexArray(cometPathVao_.id());
+    glDrawArrays(GL_LINE_STRIP, 0, cometPathCount_);
+    if (settings.bezierControl) {
+        // The control polygon is closed: the last in-handle connects back to anchor 0.
+        glDrawArrays(GL_LINE_LOOP, cometPathCount_, cometPolygonCount_);
+        glDrawArrays(GL_LINES, cometPathCount_ + cometPolygonCount_, cometMarkerCount_);
+    }
+}
+void Renderer::cometTails(const SolarSystem& system, const glm::mat4& vp, float pixelScale) {
+    const auto& comet = system.comet();
+    const double days = system.days();
+    const glm::vec3 nucleus = comet.position(days);
+    const float r = std::max(glm::length(nucleus), 0.001f);
+    const glm::vec3 away = nucleus / r;
+    // Sublimation grows quickly as the comet approaches the Sun, so the tails are
+    // bright and long near perihelion and almost vanish in the outer system.
+    const float activity = std::clamp(std::pow(12.0f / r, 1.6f), 0.0f, 1.6f);
+    if (activity < 0.02f)
+        return;
+    const float ionLength = std::clamp(70.0f / r, 1.5f, 13.0f);
+    tailVertices_.clear();
+    // Ion (plasma) tail: blown straight away from the Sun by the solar wind.
+    for (int i = 0; i < ionParticles; ++i) {
+        const float s = static_cast<float>(i) / (ionParticles - 1);
+        const float fade = std::pow(1.0f - s, 1.5f);
+        tailVertices_.push_back({nucleus + away * (ionLength * s), {0.56f, 1.0f, 1.6f, 0.5f * activity * fade},
+                                 Comet::radius * (1.2f + 3.0f * s)});
+    }
+    // Dust tail: grains released at earlier times keep the comet's old orbit and
+    // are pushed outward by radiation pressure, so the tail curves behind it.
+    constexpr double maxAge = 9.0;
+    const float push = ionLength * 0.55f / static_cast<float>(maxAge);
+    for (int i = 1; i <= dustParticles; ++i) {
+        const float s = static_cast<float>(i) / dustParticles;
+        const double age = maxAge * s;
+        const glm::vec3 origin = comet.position(days - age);
+        const glm::vec3 radial = glm::normalize(origin);
+        tailVertices_.push_back({origin + radial * (push * static_cast<float>(age)),
+                                 {1.5f, 1.15f, 0.7f, 0.42f * activity * (1.0f - s)},
+                                 Comet::radius * (1.6f + 5.0f * s)});
+    }
+    cometTail_.use();
+    cometTail_.set("uVP", vp);
+    cometTail_.set("uPixelScale", pixelScale);
+    glBindVertexArray(cometTailVao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, cometTailVbo_.id());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, tailVertices_.size() * sizeof(TailVertex), tailVertices_.data());
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(tailVertices_.size()));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
 void Renderer::render(const SolarSystem& system, const Camera& camera, const RenderSettings& settings,
                       int selected, float realTime, bool focusPresentation) {
     if (!drawable_)
@@ -346,6 +451,23 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         debugSurface_.set("uColor", glm::vec3(0.75f));
     }
     sphere_.draw();
+    const glm::vec3 cometPosition = system.comet().position(days);
+    if (settings.comet) {
+        // A slightly flattened, tumbling nucleus; it reuses the Moon's rocky texture.
+        const auto cometModel =
+            glm::translate(glm::mat4(1), cometPosition) *
+            glm::rotate(glm::mat4(1), static_cast<float>(std::remainder(days / 3.0, 1.0) * 6.2831853),
+                        glm::normalize(glm::vec3(0.3f, 1, 0.2f))) *
+            glm::scale(glm::mat4(1), glm::vec3(Comet::radius, Comet::radius * 0.8f, Comet::radius));
+        if (shaded) {
+            planet_.set("uModel", cometModel);
+            moonMap_.bind();
+        } else {
+            debugSurface_.set("uModel", cometModel);
+            debugSurface_.set("uColor", glm::vec3(0.6f, 0.85f, 1.0f));
+        }
+        sphere_.draw();
+    }
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -379,6 +501,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
                                  glm::scale(glm::mat4(1), glm::vec3(SolarSystem::moonOrbitRadius)));
         orbitMesh_.draw();
     }
+    cometPath(vp, settings);
     // Transparent annulus: opaque planet depth masks the hidden half; draw both faces.
     glDisable(GL_CULL_FACE);
     const auto& saturn = system.planets()[5];
@@ -419,6 +542,13 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
                    {0.12f, 0.48f, 1.5f}, 0.82f, false);
         atmosphere(sunModel * glm::scale(glm::mat4(1), glm::vec3(1.12f)), vp, eye, {2.0f, 0.55f, 0.08f}, 0.48f,
                    true);
+        if (settings.comet) {
+            const float coma = std::clamp(std::pow(12.0f / glm::length(cometPosition), 1.2f), 0.15f, 1.4f);
+            atmosphere(glm::translate(glm::mat4(1), cometPosition) *
+                           glm::scale(glm::mat4(1), glm::vec3(Comet::radius * 3.2f)),
+                       vp, eye, {0.5f, 1.1f, 1.6f}, coma, true);
+            cometTails(system, vp, projection[1][1] * static_cast<float>(height_) * 0.5f);
+        }
     }
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     diagnostics(system, vp, eye, settings, selected);
