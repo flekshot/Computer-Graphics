@@ -254,6 +254,8 @@ int Application::run() {
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                 system.setPaused(!system.paused());
+            if (ImGui::IsKeyPressed(ImGuiKey_P, false))
+                settings.orthographic = !settings.orthographic;
             if (ImGui::IsKeyPressed(ImGuiKey_G, false))
                 settings.shading = static_cast<ShadingModel>((static_cast<int>(settings.shading) + 1) % 3);
             if (ImGui::IsKeyPressed(ImGuiKey_C, false))
@@ -302,6 +304,7 @@ int Application::run() {
             workshopCamera.update(dt, {});
             workshopCamera.avoidSphere({}, radius);
         } else {
+        camera.setOrthographic(settings.orthographic);
         camera.update(dt, camera.followed() >= 0 ? system.planets()[camera.followed()].position(system.days())
                                                  : glm::vec3(0));
         camera.avoidSphere({0, 0, 0}, SolarSystem::sunRadius);

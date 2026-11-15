@@ -71,6 +71,17 @@ void UIManager::graphicsControls(RenderSettings& settings) {
         settings.shading = ShadingModel::BlinnPhong;
         settings.lowPoly = false;
     }
+    section("PROJECTION  [P]");
+    int projection = settings.orthographic ? 1 : 0;
+    if (ImGui::RadioButton("Perspective", &projection, 0))
+        settings.orthographic = false;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Orthographic", &projection, 1))
+        settings.orthographic = true;
+    hint(settings.orthographic
+             ? "Parallel projection: no foreshortening, so equal sizes stay equal at any depth. "
+               "The view volume is a box sized to match the focus distance."
+             : "Perspective divide by w: distant worlds shrink and parallel lines converge.");
     section("COMET & BEZIER CURVES");
     ImGui::Checkbox("Comet  [C]", &settings.comet);
     ImGui::BeginDisabled(!settings.comet);

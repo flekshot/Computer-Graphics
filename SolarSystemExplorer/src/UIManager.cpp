@@ -605,6 +605,7 @@ void UIManager::helpWindow() {
                                          {"Space", "Pause / resume simulation"},
                                          {"+ / -", "Increase / decrease simulation speed"},
                                          {"G", "Cycle Blinn-Phong / Phong / Gouraud shading"},
+                                         {"P", "Toggle perspective / orthographic projection"},
                                          {"C", "Show / hide the Bezier comet"},
                                          {"B", "Show the comet's Bezier control polygon"},
                                          {"H", "Toggle this help"},
@@ -634,7 +635,10 @@ void UIManager::labels(const SolarSystem& system, const Camera& camera, int sele
     const auto size = ImGui::GetIO().DisplaySize;
     if (size.x <= 0 || size.y <= 0)
         return;
-    const auto vp = camera.projection(size.x / size.y) * camera.view();
+    const auto projection = camera.projection(size.x / size.y);
+    const auto vp = projection * camera.view();
+    // World radius -> pixels; valid for perspective (divide by w) and orthographic (w == 1).
+    const float pixelsPerUnit = projection[1][1] * 0.5f * size.y;
     auto* dl = ImGui::GetBackgroundDrawList();
     const float left = cleanView_ ? 24 : size.x < 1200 ? 232.0f : 252.0f;
     const float right = size.x - (cleanView_ ? 24 : size.x < 1200 ? 280.0f : 316.0f);
@@ -650,7 +654,7 @@ void UIManager::labels(const SolarSystem& system, const Camera& camera, int sele
         if (ndc.z < -1 || ndc.z > 1)
             return;
         ImVec2 p((ndc.x * 0.5f + 0.5f) * size.x, (0.5f - ndc.y * 0.5f) * size.y);
-        float pixelRadius = radius / clip.w * size.y * 1.21f;
+        const float pixelRadius = radius * pixelsPerUnit / clip.w;
         const auto text = ImGui::CalcTextSize(name);
         Rect box{p.x + pixelRadius + 12, p.y - 10, text.x + 14, 24};
         const bool labelLeft = box.x + box.w > right;

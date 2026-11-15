@@ -38,6 +38,7 @@ struct RenderSettings {
     bool comet = true, bezierControl = false;
     ShadingModel shading = ShadingModel::BlinnPhong;
     bool lowPoly = false;
+    bool orthographic = false;
 };
 
 struct EclipseSettings {

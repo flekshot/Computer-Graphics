@@ -361,7 +361,9 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     const Mesh& body = settings.lowPoly ? lowSphere_ : sphere_;
     const auto view = camera.view(), projection = camera.projection(float(width_) / height_),
                vp = projection * view;
-    const auto skyVP = projection * glm::mat4(glm::mat3(view));
+    // The sky and stars are at infinity: they always use the perspective
+    // projection, otherwise an orthographic view would collapse them to a smear.
+    const auto skyVP = camera.perspectiveProjection(float(width_) / height_) * glm::mat4(glm::mat3(view));
     const auto eye = camera.position();
     const double days = system.days();
     glBindFramebuffer(GL_FRAMEBUFFER, msaaFbo_.id());
