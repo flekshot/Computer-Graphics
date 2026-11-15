@@ -28,7 +28,7 @@ target_include_directories(imgui SYSTEM PUBLIC third_party/imgui third_party/img
 target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 
 add_library(sse_core STATIC src/Planet.cpp src/SolarSystem.cpp src/Camera.cpp src/Geometry.cpp
-    src/ExperimentIO.cpp src/EclipseModel.cpp src/WorkshopModel.cpp src/Missions.cpp)
+    src/ExperimentIO.cpp src/EclipseModel.cpp src/WorkshopModel.cpp src/Missions.cpp src/Bezier.cpp src/Comet.cpp)
 target_include_directories(sse_core PUBLIC include)
 target_link_libraries(sse_core PUBLIC glm)
 add_executable(SolarSystemExplorer src/main.cpp src/Application.cpp src/Shader.cpp src/Mesh.cpp src/Texture.cpp
@@ -75,6 +75,9 @@ if(SSE_BUILD_TESTS)
     add_executable(WorkshopTests tests/WorkshopTests.cpp)
     target_link_libraries(WorkshopTests PRIVATE sse_core)
     add_test(NAME workshop_geometry COMMAND WorkshopTests)
+    add_executable(BezierTests tests/BezierTests.cpp)
+    target_link_libraries(BezierTests PRIVATE sse_core)
+    add_test(NAME bezier_comet COMMAND BezierTests)
     add_executable(MissionTests tests/MissionTests.cpp)
     target_link_libraries(MissionTests PRIVATE sse_core)
     add_test(NAME workshop_missions COMMAND MissionTests)
