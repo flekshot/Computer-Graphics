@@ -115,6 +115,11 @@ int Application::run() {
     }
     if (options_.lab) lab.view = *options_.lab;
     if (options_.surfaceMode) settings.surfaceMode = *options_.surfaceMode;
+    if (options_.shading) settings.shading = *options_.shading;
+    settings.orthographic = settings.orthographic || options_.orthographic;
+    settings.lowPoly = settings.lowPoly || options_.lowPoly;
+    settings.bezierControl = settings.bezierControl || options_.bezierControl;
+    if (options_.noComet) settings.comet = settings.bezierControl = false;
     if (options_.lunar) lab.eclipse.lunar = *options_.lunar;
     if (options_.observer) lab.eclipse.observerView = *options_.observer;
     if (options_.eclipsePhase) lab.eclipse.phaseDegrees = *options_.eclipsePhase;

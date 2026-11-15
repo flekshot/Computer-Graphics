@@ -185,7 +185,7 @@ void Renderer::fullscreen() const {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 void Renderer::atmosphere(const glm::mat4& model, const glm::mat4& vp, const glm::vec3& eye, glm::vec3 color,
-                          float strength, bool sun) {
+                          float strength, bool sun, const Mesh* mesh) {
     atmosphere_.use();
     atmosphere_.set("uModel", model);
     atmosphere_.set("uVP", vp);
@@ -193,7 +193,7 @@ void Renderer::atmosphere(const glm::mat4& model, const glm::mat4& vp, const glm
     atmosphere_.set("uColor", color);
     atmosphere_.set("uStrength", strength);
     atmosphere_.set("uSun", int(sun));
-    sphere_.draw();
+    (mesh ? *mesh : sphere_).draw();
 }
 void Renderer::diagnostics(const SolarSystem& system, const glm::mat4& vp, const glm::vec3& eye,
                            const RenderSettings& settings, int selected) {
@@ -585,7 +585,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         body.draw();
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         atmosphere(earth.modelMatrix(days) * glm::scale(glm::mat4(1), glm::vec3(1.055f)), vp, eye,
-                   {0.12f, 0.48f, 1.5f}, 0.82f, false);
+                   {0.12f, 0.48f, 1.5f}, 0.82f, false, &body);
         atmosphere(sunModel * glm::scale(glm::mat4(1), glm::vec3(1.12f)), vp, eye, {2.0f, 0.55f, 0.08f}, 0.48f,
                    true);
         if (settings.comet) {

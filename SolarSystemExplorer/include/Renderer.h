@@ -21,7 +21,7 @@ class Renderer {
   private:
     void fullscreen() const;
     void atmosphere(const glm::mat4& model, const glm::mat4& vp, const glm::vec3& eye, glm::vec3 color,
-                    float strength, bool sun);
+                    float strength, bool sun, const Mesh* mesh = nullptr);
     void diagnostics(const SolarSystem& system, const glm::mat4& vp, const glm::vec3& eye,
                      const RenderSettings& settings, int selected);
     void cometTails(const SolarSystem& system, const glm::mat4& vp, float pixelScale);
