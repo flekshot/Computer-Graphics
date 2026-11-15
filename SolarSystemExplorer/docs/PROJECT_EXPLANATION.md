@@ -260,3 +260,60 @@ Camera pose is deliberately absent from the format. After loading, `Application`
 **How would you extend it?** Add ephemeris data, physically linked orbital size and period, perturbations, and a general shadowing solution for the whole system. These are future extensions beyond the current illustrative laboratories.
 
 **Can you prove there are no memory leaks?** RAII and context-aware destruction reduce the risk, and the available checks are reported honestly. A short successful run is not a formal proof of zero leaks across all GPU drivers.
+
+## 16. Rendering techniques laboratory
+
+These features were added to cover the course rubric items on shading models, projections, buffers and parametric curves. All of them are reachable from Orbit Lab's **Graphics** tab and from keyboard shortcuts in Explore.
+
+### 16.1 Gouraud, Phong and Blinn-Phong
+
+`planet.vert` and `planet.frag` share a `uShadingModel` uniform:
+
+| Model | Where lighting is evaluated | Specular term |
+| --- | --- | --- |
+| Blinn-Phong (default) | Fragment shader, per pixel | `pow(max(dot(N, H), 0), s)` with `H = normalize(L + V)` |
+| Phong | Fragment shader, per pixel | `pow(max(dot(reflect(-L, N), V), 0), s / 4)` |
+| Gouraud | Vertex shader, per vertex | Blinn-Phong at each vertex, then interpolated |
+
+In Gouraud mode the vertex shader outputs `vNdl` and `vSpec`; the rasterizer interpolates those scalars and the fragment shader only multiplies them with the texture colour. A highlight that falls inside a large triangle is therefore lost or smeared. The **Low-poly spheres** option swaps the 128 × 64 sphere for a 16 × 8 one to make this visible. Phong uses a quarter of the Blinn exponent because the angle between `R` and `V` is roughly twice the angle between `N` and `H`; this keeps the highlight size comparable so that only its shape differs.
+
+### 16.2 Perspective and orthographic projection
+
+`Camera::orthographicProjection` builds `glm::ortho` with a half-height of `distance * tan(fov / 2)`. At the focus distance this is exactly the height the perspective frustum shows, so both projections map the focus plane identically and switching does not change the selected planet's size. For the same reason a linear blend of the two matrices also preserves the focus plane, which the camera uses to animate the switch. In the orthographic matrix `w` is always 1, so there is no perspective divide and no foreshortening. The off-centre panel offset becomes a translation (`p[3][0]`) instead of a shear (`p[2][0]`). The sky and stars represent directions at infinity and always use the perspective matrix.
+
+### 16.3 Stencil-buffer outline
+
+The multisampled scene framebuffer uses a packed `GL_DEPTH24_STENCIL8` renderbuffer. While the selected planet is drawn, `glStencilFunc(GL_ALWAYS, 1)` with `GL_REPLACE` marks its visible pixels. Next, a copy scaled by about three pixels is drawn in a flat HDR colour with `glStencilFunc(GL_NOTEQUAL, 1)` and stencil writes disabled. Only the ring outside the original silhouette survives, and bloom turns it into a glow. The scale is computed from the projection (`2w / (P[1][1] * height)` world units per pixel), so the width stays constant in pixels for both projections.
+
+### 16.4 Bézier comet and De Casteljau's algorithm
+
+`deCasteljau` evaluates a Bézier curve of any degree by repeated linear interpolation:
+
+```cpp
+for (level = n - 1; level > 0; --level)
+    for (i = 0; i < level; ++i)
+        p[i] = mix(p[i], p[i + 1], t);
+return p[0];
+```
+
+`BezierLoop` joins cubic segments into a closed path. Each anchor stores a handle vector `h`. The outgoing control point is `anchor + h`, and the incoming one is `anchor - h`. Because the two handles are collinear and equal in length, the tangent is continuous at every joint (C1). The derivative is evaluated as the quadratic **hodograph** with control points `3(P1-P0), 3(P2-P1), 3(P3-P2)`.
+
+The comet path uses four anchors at the ends of an ellipse's axes. The handle ratio 0.5523 approximates a quarter ellipse, and the perihelion handle is shortened so the curve bends tighter around the Sun. A uniform Bézier parameter does not mean uniform speed. The constructor therefore integrates `dt = |dP/du| du / v(r)` with `v ~ sqrt(2/r - 1/a)` (vis-viva) and inverts the resulting table at run time. The comet is about nine times faster at perihelion than at aphelion.
+
+The tails are point sprites with additive blending. The ion tail is a straight line away from the Sun. Each dust particle is placed where the comet was `age` days ago and is pushed outward by `age * push`, so the dust tail curves behind the comet. Brightness scales with `(12 / r)^1.6`.
+
+`tests/BezierTests.cpp` checks that De Casteljau agrees with the Bernstein form and that endpoints are interpolated. It also tests C0 and C1 continuity at every joint, periodicity, monotonic motion and perihelion/aphelion speeds. `CoreTests` checks the projection invariants.
+
+### 16.5 Defense questions for these techniques
+
+**Why does Gouraud shading lose highlights?** Lighting is computed only at vertices. If a specular peak falls between vertices, the interpolation never reaches it.
+
+**Why is Blinn-Phong the default?** The half vector is cheaper than a reflection and behaves better at grazing angles; it is also what fixed-function OpenGL used.
+
+**When would you use an orthographic projection?** For CAD, maps, 2D UI and technical views where sizes must be comparable regardless of depth.
+
+**What is the stencil buffer?** It is an integer per-sample buffer that is tested and updated alongside depth. It is commonly used for outlines, mirrors, portals and shadow volumes.
+
+**Why use De Casteljau instead of the Bernstein polynomial?** It uses only convex combinations, so it is numerically stable. It also works for any degree, and its intermediate points split the curve into two Bézier curves.
+
+**What continuity does the comet path have?** It has C1 continuity: positions and first derivatives match at joints because the handles are collinear and equal in length.

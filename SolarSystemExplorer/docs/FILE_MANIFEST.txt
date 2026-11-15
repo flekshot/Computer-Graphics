@@ -1,6 +1,6 @@
 SOLAR SYSTEM EXPLORER - FILE INVENTORY
 
-Project, assets, examples, licenses and screenshots (149 files)
+Project, assets, examples, licenses and screenshots (156 files)
 .clang-format
 .gitignore
 BuildAndRun.bat
@@ -58,7 +58,9 @@ examples/ocean-world.sselab
 examples/solar-eclipse.sselab
 include/AnimatedTexture.h
 include/Application.h
+include/Bezier.h
 include/Camera.h
+include/Comet.h
 include/EclipseModel.h
 include/EclipseRenderer.h
 include/ExperimentDialogs.h
@@ -92,6 +94,8 @@ licenses/imstb_truetype.h.license.txt
 licenses/stb.txt
 shaders/atmosphere.frag
 shaders/blur.frag
+shaders/comet_tail.frag
+shaders/comet_tail.vert
 shaders/composite.frag
 shaders/debug_lines.frag
 shaders/debug_lines.vert
@@ -115,7 +119,9 @@ shaders/workshop.frag
 shaders/workshop.vert
 src/AnimatedTexture.cpp
 src/Application.cpp
+src/Bezier.cpp
 src/Camera.cpp
+src/Comet.cpp
 src/EclipseModel.cpp
 src/EclipseRenderer.cpp
 src/ExperimentDialogs.cpp
@@ -137,6 +143,7 @@ src/WorkshopModel.cpp
 src/WorkshopRenderer.cpp
 src/WorkshopUI.cpp
 src/main.cpp
+tests/BezierTests.cpp
 tests/CoreTests.cpp
 tests/EclipseTests.cpp
 tests/LabSmokeScenario.cpp
