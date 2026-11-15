@@ -604,6 +604,7 @@ void UIManager::helpWindow() {
                                          {"0 / R", "Return to the full-system overview"},
                                          {"Space", "Pause / resume simulation"},
                                          {"+ / -", "Increase / decrease simulation speed"},
+                                         {"G", "Cycle Blinn-Phong / Phong / Gouraud shading"},
                                          {"C", "Show / hide the Bezier comet"},
                                          {"B", "Show the comet's Bezier control polygon"},
                                          {"H", "Toggle this help"},

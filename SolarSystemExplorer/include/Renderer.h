@@ -37,7 +37,7 @@ class Renderer {
     };
     Shader planet_, sun_, orbit_, ring_, atmosphere_, sky_, star_, blur_, composite_, debugSurface_,
         debugLines_, cometTail_;
-    Mesh sphere_, annulus_, orbitMesh_, stars_;
+    Mesh sphere_, lowSphere_, annulus_, orbitMesh_, stars_;
     std::vector<Texture> surfaces_;
     Texture sunMap_, moonMap_, ringMap_, nightMap_, cloudMap_, skyMap_;
     GLObject emptyVao_{GLKind::VertexArray}, sceneFbo_{GLKind::Framebuffer}, sceneColor_{GLKind::Texture},

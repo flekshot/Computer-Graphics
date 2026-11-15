@@ -254,6 +254,8 @@ int Application::run() {
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                 system.setPaused(!system.paused());
+            if (ImGui::IsKeyPressed(ImGuiKey_G, false))
+                settings.shading = static_cast<ShadingModel>((static_cast<int>(settings.shading) + 1) % 3);
             if (ImGui::IsKeyPressed(ImGuiKey_C, false))
                 settings.comet = !settings.comet;
             if (ImGui::IsKeyPressed(ImGuiKey_B, false)) {

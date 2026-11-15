@@ -66,6 +66,7 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
       debugSurface_(root / "shaders/planet.vert", root / "shaders/debug_surface.frag"),
       debugLines_(root / "shaders/debug_lines.vert", root / "shaders/debug_lines.frag"),
       cometTail_(root / "shaders/comet_tail.vert", root / "shaders/comet_tail.frag"), sphere_(makeSphere()),
+      lowSphere_(makeSphere(16, 8)),
       annulus_(makeAnnulus(1.25f, 2.3f)), orbitMesh_(makeOrbit(), GL_LINE_LOOP),
       stars_(makeStars(), GL_POINTS),
       sunMap_(root / (forceFallback ? "missing/sun" : "assets/textures/sun.jpg"), "Sun"),
@@ -355,6 +356,9 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     const bool shaded = settings.surfaceMode == SurfaceMode::Shaded;
     const bool wireframe = settings.surfaceMode == SurfaceMode::Wireframe;
     const glm::vec3 lighting(settings.ambient, settings.diffuse, settings.specular);
+    // A coarse 16x8 sphere makes the difference between per-vertex (Gouraud)
+    // and per-pixel (Phong) lighting obvious; the Sun always stays smooth.
+    const Mesh& body = settings.lowPoly ? lowSphere_ : sphere_;
     const auto view = camera.view(), projection = camera.projection(float(width_) / height_),
                vp = projection * view;
     const auto skyVP = projection * glm::mat4(glm::mat3(view));
@@ -420,6 +424,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         planet_.set("uRing", 2);
         planet_.set("uClouds", 0);
         planet_.set("uLighting", lighting);
+        planet_.set("uShadingModel", static_cast<int>(settings.shading));
         nightMap_.bind(1);
         ringMap_.bind(2);
     }
@@ -439,7 +444,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             debugSurface_.set("uModel", p.modelMatrix(days));
             debugSurface_.set("uColor", glm::mix(p.data().color, glm::vec3(1), 0.3f));
         }
-        sphere_.draw();
+        body.draw();
     }
     if (shaded) {
         planet_.set("uEarth", 0);
@@ -450,7 +455,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         debugSurface_.set("uModel", system.moonModel(days));
         debugSurface_.set("uColor", glm::vec3(0.75f));
     }
-    sphere_.draw();
+    body.draw();
     const glm::vec3 cometPosition = system.comet().position(days);
     if (settings.comet) {
         // A slightly flattened, tumbling nucleus; it reuses the Moon's rocky texture.
@@ -466,7 +471,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             debugSurface_.set("uModel", cometModel);
             debugSurface_.set("uColor", glm::vec3(0.6f, 0.85f, 1.0f));
         }
-        sphere_.draw();
+        body.draw();
     }
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_BLEND);
@@ -536,7 +541,7 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
                         glm::scale(glm::mat4(1), glm::vec3(1.012f)));
         planet_.set("uClouds", 1);
         cloudMap_.bind();
-        sphere_.draw();
+        body.draw();
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         atmosphere(earth.modelMatrix(days) * glm::scale(glm::mat4(1), glm::vec3(1.055f)), vp, eye,
                    {0.12f, 0.48f, 1.5f}, 0.82f, false);

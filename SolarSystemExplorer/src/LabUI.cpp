@@ -52,9 +52,25 @@ void UIManager::graphicsControls(RenderSettings& settings) {
     ImGui::TextUnformatted("Specular");
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##specular", &settings.specular, 0, 3, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::TextUnformatted("Shading model  [G]");
+    int shading = static_cast<int>(settings.shading);
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::Combo("##shading", &shading, "Blinn-Phong (per pixel)\0Phong (per pixel)\0Gouraud (per vertex)\0"))
+        settings.shading = static_cast<ShadingModel>(shading);
+    hint(settings.shading == ShadingModel::Gouraud
+             ? "Gouraud lights each vertex and interpolates colour, so highlights smear across large "
+               "triangles. Turn on low-poly spheres to see it clearly."
+             : settings.shading == ShadingModel::Phong
+             ? "Phong interpolates the normal and reflects the light direction R = reflect(-L, N) per pixel."
+             : "Blinn-Phong uses the half vector H = normalize(L + V) per pixel: cheaper and more stable.");
     ImGui::EndDisabled();
-    if (ImGui::Button("Reset lighting", {-1, 28}))
+    // Also useful in wireframe mode, where the coarse triangle mesh becomes visible.
+    ImGui::Checkbox("Low-poly spheres (16 x 8)", &settings.lowPoly);
+    if (ImGui::Button("Reset lighting", {-1, 28})) {
         settings.ambient = settings.diffuse = settings.specular = 1;
+        settings.shading = ShadingModel::BlinnPhong;
+        settings.lowPoly = false;
+    }
     section("COMET & BEZIER CURVES");
     ImGui::Checkbox("Comet  [C]", &settings.comet);
     ImGui::BeginDisabled(!settings.comet);
