@@ -606,6 +606,7 @@ void UIManager::helpWindow() {
                                          {"+ / -", "Increase / decrease simulation speed"},
                                          {"G", "Cycle Blinn-Phong / Phong / Gouraud shading"},
                                          {"P", "Toggle perspective / orthographic projection"},
+                                         {"O", "Stencil outline around the selected planet"},
                                          {"C", "Show / hide the Bezier comet"},
                                          {"B", "Show the comet's Bezier control polygon"},
                                          {"H", "Toggle this help"},

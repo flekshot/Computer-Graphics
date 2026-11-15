@@ -39,6 +39,7 @@ struct RenderSettings {
     ShadingModel shading = ShadingModel::BlinnPhong;
     bool lowPoly = false;
     bool orthographic = false;
+    bool outline = true; // Stencil-buffer silhouette around the selected planet.
 };
 
 struct EclipseSettings {

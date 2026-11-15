@@ -71,6 +71,11 @@ void UIManager::graphicsControls(RenderSettings& settings) {
         settings.shading = ShadingModel::BlinnPhong;
         settings.lowPoly = false;
     }
+    ImGui::BeginDisabled(settings.surfaceMode != SurfaceMode::Shaded);
+    ImGui::Checkbox("Stencil outline of selection  [O]", &settings.outline);
+    ImGui::EndDisabled();
+    hint("Two passes: the planet writes 1 into the stencil buffer, then a larger copy is drawn "
+         "only where the stencil test (!= 1) passes.");
     section("PROJECTION  [P]");
     int projection = settings.orthographic ? 1 : 0;
     if (ImGui::RadioButton("Perspective", &projection, 0))

@@ -254,6 +254,8 @@ int Application::run() {
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                 system.setPaused(!system.paused());
+            if (ImGui::IsKeyPressed(ImGuiKey_O, false))
+                settings.outline = !settings.outline;
             if (ImGui::IsKeyPressed(ImGuiKey_P, false))
                 settings.orthographic = !settings.orthographic;
             if (ImGui::IsKeyPressed(ImGuiKey_G, false))

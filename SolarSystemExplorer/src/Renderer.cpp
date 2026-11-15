@@ -168,8 +168,9 @@ void Renderer::resize(int width, int height) {
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA16F, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, msaaColor_.id());
     glBindRenderbuffer(GL_RENDERBUFFER, depth_.id());
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_.id());
+    // Packed depth + 8-bit stencil: the stencil plane marks the selected planet's pixels.
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_.id());
     checkFramebuffer();
     for (size_t i = 0; i < 2; ++i) {
         allocateColor(blurColor_[i].id(), bloomWidth_, bloomHeight_);
@@ -373,8 +374,13 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
     glDepthMask(GL_TRUE);
+    glStencilMask(0xFF);
+    glDisable(GL_STENCIL_TEST);
     glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearStencil(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    const bool outline = settings.outline && shaded && selected >= 0 &&
+                         static_cast<size_t>(selected) < system.planets().size();
     glDisable(GL_DEPTH_TEST);
     sky_.use();
     sky_.set("uInverseVP", glm::inverse(skyVP));
@@ -446,7 +452,17 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             debugSurface_.set("uModel", p.modelMatrix(days));
             debugSurface_.set("uColor", glm::mix(p.data().color, glm::vec3(1), 0.3f));
         }
+        const bool marked = outline && static_cast<int>(i) == selected;
+        if (marked) {
+            // Pass 1: every visible fragment of the selected planet writes 1 to the stencil buffer.
+            glEnable(GL_STENCIL_TEST);
+            glStencilFunc(GL_ALWAYS, 1, 0xFF);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+            glStencilMask(0xFF);
+        }
         body.draw();
+        if (marked)
+            glDisable(GL_STENCIL_TEST);
     }
     if (shaded) {
         planet_.set("uEarth", 0);
@@ -476,6 +492,29 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         body.draw();
     }
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    if (outline) {
+        // Pass 2: draw a slightly enlarged copy in a flat HDR colour, but only where
+        // the stencil is NOT 1. What survives is a thin ring around the silhouette,
+        // which bloom turns into a soft glow. The width is kept constant in pixels.
+        const auto& planet = system.planets()[static_cast<size_t>(selected)];
+        const glm::vec3 center = planet.position(days);
+        const float w = std::max((vp * glm::vec4(center, 1)).w, 1e-4f);
+        const float worldPerPixel = 2.0f * w / (projection[1][1] * static_cast<float>(height_));
+        const float pulse = 1.0f + 0.2f * std::sin(realTime * 3.0f);
+        const float scale = std::min(1.0f + 3.0f * pulse * worldPerPixel / planet.data().radius, 1.6f);
+        glEnable(GL_STENCIL_TEST);
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+        glDepthMask(GL_FALSE);
+        debugSurface_.use();
+        debugSurface_.set("uVP", vp);
+        debugSurface_.set("uNormals", 0);
+        debugSurface_.set("uModel", planet.modelMatrix(days) * glm::scale(glm::mat4(1), glm::vec3(scale)));
+        debugSurface_.set("uColor", glm::mix(planet.data().color, glm::vec3(1), 0.25f) * 2.4f);
+        body.draw();
+        glStencilMask(0xFF);
+        glDisable(GL_STENCIL_TEST);
+    }
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
