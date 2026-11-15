@@ -87,13 +87,18 @@ if(SSE_BUILD_TESTS)
     add_test(NAME workshop_smoke COMMAND SolarSystemExplorer --workshop-smoke-test --hidden)
     add_test(NAME missing_textures COMMAND SolarSystemExplorer --frames 5 --hidden --fallback-textures)
     add_test(NAME no_bloom COMMAND SolarSystemExplorer --frames 5 --hidden --no-bloom)
+    add_test(NAME rendering_techniques COMMAND SolarSystemExplorer --frames 90 --hidden --planet saturn
+        --shading gouraud --low-poly --orthographic --bezier)
+    add_test(NAME phong_shading COMMAND SolarSystemExplorer --frames 30 --hidden --planet earth --shading phong)
     add_test(NAME invalid_cli COMMAND SolarSystemExplorer --speed nan)
+    add_test(NAME invalid_shading COMMAND SolarSystemExplorer --shading toon)
     if(WIN32)
         add_test(NAME resource_recovery COMMAND ${CMAKE_COMMAND}
             "-DEXE=$<TARGET_FILE:SolarSystemExplorer>" "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}"
             "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/resource-tests" -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/ResourceTests.cmake")
         set_tests_properties(resource_recovery PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
     endif()
-    set_tests_properties(invalid_cli PROPERTIES WILL_FAIL TRUE)
-    set_tests_properties(opengl_context graphics_smoke laboratory_smoke workshop_smoke missing_textures no_bloom PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
+    set_tests_properties(invalid_cli invalid_shading PROPERTIES WILL_FAIL TRUE)
+    set_tests_properties(opengl_context graphics_smoke laboratory_smoke workshop_smoke missing_textures no_bloom
+        rendering_techniques phong_shading PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
 endif()
