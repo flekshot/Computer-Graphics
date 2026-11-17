@@ -1,6 +1,7 @@
 #include "Camera.h"
 #include "Geometry.h"
 #include "SolarSystem.h"
+#include "VisualMath.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 #include <iostream>
@@ -20,6 +21,20 @@ bool near(double a, double b, double eps = 1e-4) {
 } // namespace
 int main() {
     try {
+        for (double boundary : {500.0, 1500.0, 9999999500.0}) {
+            const auto before = glm::rotate(glm::mat4(1), sse::cloudRotationRadians(boundary - .01), glm::vec3(0, 1, 0));
+            const auto after = glm::rotate(glm::mat4(1), sse::cloudRotationRadians(boundary + .01), glm::vec3(0, 1, 0));
+            check(glm::length(glm::vec3((before - after) * glm::vec4(1, 0, 0, 0))) < .002f,
+                  "Earth clouds must rotate continuously across their time wrap");
+        }
+        for (float aspect : {.15f, .34f, 1.0f, 2.0f}) {
+            const float fov = sse::fitVerticalFov(1.17f, aspect);
+            check(fov > 0 && fov < 3.14159265f,
+                  "An eclipse observer projection must never invert in a portrait window");
+            const auto projection = glm::perspective(fov, aspect, .01f, 100.0f);
+            check(projection[0][0] > 0 && projection[1][1] > 0,
+                  "Observer projection must keep both screen axes upright");
+        }
         sse::SolarSystem system;
         check(system.planets().size() == 8, "All eight planets must participate in the model");
         for (const auto& p : system.planets()) {
@@ -105,6 +120,35 @@ int main() {
             camera.update(1.0f / 60, {});
         check(camera.followed() < 0 && glm::length(camera.center()) < 0.001f,
               "Overview must detach and return to origin");
+        sse::Camera sculpting;
+        sculpting.focus(0, {}, 1);
+        sculpting.orbit(160, -90);
+        sculpting.zoom(2);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        sculpting.pan(.2f, -.1f, .3f);
+        sculpting.update(1.0f / 60, {});
+        const auto sculptingCenter = sculpting.center();
+        const auto sculptingDirection = glm::normalize(sculpting.position() - sculptingCenter);
+        const float sculptingDistance = sculpting.distance();
+        sculpting.setFocusRadius(1.5f);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        check(glm::length(sculpting.center() - sculptingCenter) < .0001f,
+              "Changing terrain size must preserve user pan");
+        check(glm::length(glm::normalize(sculpting.position() - sculpting.center()) - sculptingDirection) < .0001f,
+              "Changing terrain size must preserve viewing direction");
+        check(near(sculpting.distance(), sculptingDistance * 1.5f),
+              "Changing terrain size must preserve relative zoom");
+        sculpting.setFocusRadius(0);
+        sculpting.setFocusRadius(std::numeric_limits<float>::quiet_NaN());
+        check(near(sculpting.distance(), sculptingDistance * 1.5f),
+              "Invalid terrain bounds must leave the camera intact");
+        sculpting.zoom(1000);
+        for (int i = 0; i < 300; ++i)
+            sculpting.update(1.0f / 60, {});
+        check(sculpting.distance() >= 1.5f * 1.42f,
+              "Zoom limits must follow the resized terrain");
         // Collision corrections during a focus flight must not become permanent user pan.
         sse::Camera flight;
         auto settle = [&](int index) {
@@ -149,6 +193,42 @@ int main() {
                 check(x > leftEdge && x < rightEdge,
                       "All eight destination centers must be visible between panels in the initial overview");
             }
+        }
+        {
+            // Perspective vs orthographic projection.
+            sse::Camera camera;
+            camera.setViewport(1440, 900, false);
+            for (int i = 0; i < 600; ++i)
+                camera.update(1.0f / 60, {});
+            const float aspect = 1.6f, depth = camera.distance();
+            const auto perspective = camera.projection(aspect);
+            check(perspective[2][3] == -1.0f && camera.orthographicBlend() == 0.0f,
+                  "The default camera must use a perspective projection");
+            camera.setOrthographic(true);
+            for (int i = 0; i < 120; ++i)
+                camera.update(1.0f / 60, {});
+            check(camera.orthographic() && camera.orthographicBlend() == 1.0f,
+                  "The projection transition must settle on orthographic");
+            const auto ortho = camera.projection(aspect);
+            check(ortho[2][3] == 0.0f && ortho[3][3] == 1.0f, "An orthographic projection must keep w == 1");
+            const auto ndcY = [](const glm::mat4& projection, const glm::vec3& viewPoint) {
+                const auto clip = projection * glm::vec4(viewPoint, 1);
+                return clip.y / clip.w;
+            };
+            check(near(ndcY(ortho, {0, 3, -depth * 0.5f}), ndcY(ortho, {0, 3, -depth * 1.5f})),
+                  "Orthographic projection must not foreshorten with depth");
+            check(ndcY(perspective, {0, 3, -depth * 0.5f}) > ndcY(perspective, {0, 3, -depth * 1.5f}),
+                  "Perspective projection must shrink distant objects");
+            check(near(ndcY(ortho, {0, 3, -depth}), ndcY(perspective, {0, 3, -depth})),
+                  "Both projections must agree on the focus plane so switching keeps the subject's size");
+            camera.setOrthographic(false);
+            camera.update(1.0f / 60, {});
+            const float blend = camera.orthographicBlend();
+            check(blend > 0.0f && blend < 1.0f, "Switching back must animate through intermediate projections");
+            const auto mixed = camera.projection(aspect);
+            check(std::isfinite(mixed[0][0]) &&
+                      near(ndcY(mixed, {0, 3, -depth}), ndcY(perspective, {0, 3, -depth})),
+                  "A blended projection must also preserve the focus plane");
         }
         std::cout << "PASS: " << checks << " core assertions (orbits, time, hierarchy, mesh, camera)\n";
         return 0;

@@ -1,4 +1,5 @@
 #pragma once
+#include "Comet.h"
 #include "Planet.h"
 #include <vector>
 namespace sse {
@@ -9,6 +10,9 @@ class SolarSystem {
     static constexpr float moonOrbitRadius = 2.3f;
     SolarSystem();
     const std::vector<Planet>& planets() const { return planets_; }
+    bool setOrbit(size_t index, const OrbitParameters& parameters, std::string& error);
+    void resetOrbits();
+    bool isModified() const;
     void update(double seconds);
     double days() const { return days_; }
     void setDays(double days);
@@ -19,9 +23,13 @@ class SolarSystem {
     glm::vec3 moonPosition(double days) const;
     glm::mat4 moonModel(double days) const;
     glm::mat4 moonFrame(double days) const;
+    const Comet& comet() const { return comet_; }
+    glm::vec3 cometPosition() const { return comet_.position(days_); }
 
   private:
     std::vector<Planet> planets_;
+    std::vector<OrbitParameters> defaultOrbits_;
+    Comet comet_;
     double days_ = 0;
     float speed_ = 1;
     bool paused_ = false;

@@ -1,71 +1,83 @@
-# Demonstration script — approximately 4 minutes
+# Demonstration script — approximately 5 minutes
 
-Before the presentation, build Release and run the tests. Use the portable folder on the presentation computer and check its OpenGL driver. Start with:
+Before presenting, build Release and run the tests. Check the presentation computer's OpenGL driver and rehearse Save/Load with a file location you can find easily. Use the default 1440×900 window if possible; smaller windows have scrollable side panels. Start from the portable folder with:
 
 ```powershell
 .\SolarSystemExplorer.exe --paused
 ```
 
-Keep the README and `PROJECT_EXPLANATION.md` available for questions. Use the default 1440×900 window if the display supports it. The narration below is deliberately simple English.
+Keep the README and `PROJECT_EXPLANATION.md` available for questions. Ready-made experiments are included in `examples/`: `elliptical-mars.sselab`, `solar-eclipse.sselab`, and `lunar-eclipse.sselab`. They can be opened through **Load...** if you want a rehearsed starting state.
 
 ## 0:00–0:35 — Introduce the system
 
-Show the overview. Briefly drag in empty space, then press **R** to restore the presentation view.
+Show the overview. Drag briefly in empty space, then press **R**.
 
-> This is Solar System Explorer, my final project for Computer Graphics Fundamentals. It is written in C++17 with OpenGL 3.3 Core. It contains the Sun, all eight planets, Earth's Moon and Saturn's rings. The sizes and distances are scaled for clear exploration.
+> This is Solar System Explorer, our team's Computer Graphics Fundamentals project. It uses C++17 and OpenGL 3.3 Core. The default scene contains the Sun, eight planets, Earth's Moon, and Saturn's rings. All resources are local, so it runs offline.
 
-Point to the planet list and information panel.
+Point to **Explore**, **Orbit Lab**, and **Eclipse Lab**.
 
-> The scene uses generated geometry, texture mapping, custom shaders and an interactive orbit camera. All resources are stored locally, so the program works offline.
+> Explore presents the system. Orbit Lab lets us change motion and inspect the graphics. Eclipse Lab uses a separate scene to explain how bodies block sunlight. The scales are illustrative, not predictions of today's positions.
 
-## 0:35–1:10 — Show real-time simulation
+## 0:35–1:15 — Explore lighting and hierarchy
 
-Press **Space**. Increase the speed using **+** several times or move the slider to about **10×**. Watch Mercury and Venus move. Return speed to about **1×**.
+Press **3**, allow the camera transition to finish, and make a short drag. Point to Earth's surface, clouds, atmospheric rim, and Moon. Resume with **Space** briefly, then pause.
 
-> Every orbit is calculated from its period and elapsed simulation time. Movement uses delta time, so it does not depend on frame rate. The planets continue moving even when the camera follows a different object. Their orbital periods keep realistic relative ratios.
+> A point light at the Sun produces diffuse and specular illumination. Earth adds clouds, night lights, and an atmospheric rim. The Moon inherits Earth's translation but not its surface spin, which keeps its own orbit attached correctly.
 
-Press **Space** once to pause.
+Press **6** and show Saturn's rings.
 
-> Pausing stops orbital and axial motion while the camera remains interactive.
+> Saturn's rings use transparent geometry drawn after the opaque planet. The shaders calculate shadows between the rings and the planet.
 
-## 1:10–2:00 — Earth, lighting and hierarchy
+## 1:15–2:10 — Change an orbit
 
-Press **3** and allow the smooth transition to finish. Drag slowly across the Earth to show the day/night boundary. Use the wheel a little; avoid extreme zooming during the presentation. Turn **Orbits** off briefly if the lines distract from the surface.
+Click **Orbit Lab**, select **Mars**, and choose **Try elliptical orbit** in the right panel's **Orbit** tab. The example starts paused at day zero in overview. Point to the ellipse and its markers. If necessary, scroll the right panel to see the overlays.
 
-> Selecting Earth starts a smooth camera flight. The camera then follows its current position. The planet has a surface texture, cloud layer, atmospheric rim and night lights. A point light at the Sun creates diffuse and specular lighting, with a dark opposite hemisphere.
+> The semi-major axis controls size, eccentricity controls shape, and inclination tilts the orbital plane. Period and initial phase are editable too. Validation keeps the closest point outside the Sun.
 
-Point to the Moon. Turn orbits on, resume briefly, then pause again.
+Resume, increase the main speed to about **20×**, and observe the trajectory. Pause again.
 
-> The Moon is the hierarchical transformation example. It inherits Earth's translation, then applies its own orbit and scale. It does not inherit Earth's surface rotation. That keeps the lunar orbit attached correctly.
+> Kepler's equation makes motion faster near periapsis and slower near apoapsis. Green marks the closest point and orange the farthest. The arrow shows analytic velocity, with its length scaled for display. The recent trail is rebuilt from the current orbit.
 
-If Earth faces away from the Sun after time has advanced, press **F** to refocus from the illuminated side.
+Enter **0** in **Simulation time** and press Enter.
 
-## 2:00–2:40 — Saturn and transparency
+> Seeking a day also pauses the system. These are prescribed elliptical paths; changing size and period independently is useful for experiments, but it is not an N-body gravity simulation.
 
-Press **6**, let the camera settle, and make a short orbit drag.
+## 2:10–2:50 — Inspect the graphics
 
-> Saturn's rings are a textured annulus with transparency. The opaque planet writes depth first; the rings blend afterward without writing depth. The ring is visible from both sides. The shaders also calculate the planet's shadow on the rings and the ring shadow on the planet.
+Press **F** to focus Mars. Open the **Graphics** tab. Switch to **Wireframe**, then **World normals**.
 
-Point to the ring gap and shadow. Briefly toggle **Labels** to show that the labels are a separate projected overlay.
+> Wireframe reveals the actual indexed triangle mesh. World normals encodes the transformed X, Y, and Z components as color. The short lines show the surface normal directions used in lighting.
 
-## 2:40–3:20 — Rendering pipeline
+Return to **Shaded**. Set **Diffuse** to zero, then restore it with **Reset lighting**. Briefly adjust **Specular** or **Ambient**.
 
-Press **0**, then toggle **Bloom** off and on while looking at the Sun.
+> The lighting terms can be changed independently. This makes the difference between ambient visibility, diffuse illumination, and specular highlights observable. Bloom and exposure are separate rendering controls.
 
-> The Sun uses an emissive shader. I render to a floating-point HDR framebuffer, resolve multisample anti-aliasing, blur bright pixels at half resolution, and combine them with the scene. Tone mapping brings the HDR result into the display's range. The interface is rendered last, so its text stays sharp.
+## 2:50–4:10 — Compare solar and lunar eclipses
 
-> The background combines a local Milky Way texture with 4,500 generated stars. The application uses VAOs, VBOs, an index buffer and GLSL shaders throughout.
+Open **Eclipse Lab**. Select **Solar eclipse**, **Shaded**, and **Total alignment**. Point first to the upper geometry view, then to the larger lower Earth detail. Turn on **Shadow cones** if needed.
 
-## 3:20–4:00 — Explain design and close
+> Here the Moon blocks sunlight reaching Earth. The upper view explains the alignment; the lower view shows the target. Purple marks the umbra boundary, where sunlight is fully blocked, and amber marks the penumbra boundary, where it is partly blocked.
 
-Show **H** for the control summary, then close help. Resize the window moderately using its border and show that planets remain round. Return to overview.
+Choose **Partial alignment**, then **Clear of shadow**. Point to the visible-sunlight percentage. Return to **Total alignment** and change inclination a little.
 
-> The code separates simulation, camera, rendering and interface responsibilities. Resource-owning classes release GPU objects before the OpenGL context is destroyed. Missing textures receive a procedural fallback, and shader errors include compiler diagnostics.
+> The percentage samples Earth's Sun-facing surface center. Other places can see a different amount of the Sun. Changing phase or inclination moves the shadow, which explains why alignment matters.
 
-> The automated tests check orbital closure, pause and speed, the Earth-Moon distance, mesh normals and winding, camera transitions, resource failures and real rendering. The project brings the major course topics together in one interactive application.
+Switch to **Lunar eclipse** and choose **Total alignment**. Compare **Partial alignment**, then toggle **Observer viewpoint** for the lower view. Briefly press **Animate**, then **Pause**.
 
-Finish with the scene visible for questions. Press Escape only when the demonstration is over.
+> In a lunar eclipse, Earth blocks sunlight reaching the Moon. This laboratory has its own angular animation speed. It estimates visible sunlight from apparent disk overlap on a consistent illustrative scale; it does not predict eclipse dates or atmospheric effects.
+
+## 4:10–5:00 — Save, restore, and close
+
+Click **Save...**, choose a location, and save a `.sselab` file. Change the alignment or click **Reset experiment**, then use **Load...** to reopen the saved file.
+
+> An experiment stores all eight orbits, time, selection, graphics controls, the active laboratory, and eclipse settings. Loading validates the complete file before changing the scene. It restores the selected target, but not the exact camera pose.
+
+Return to **Explore**. If a clean closing scene is wanted, click **Reset experiment**, which pauses the original system.
+
+> The code separates simulation mathematics, rendering, the interface, and persistence. Automated checks cover the original simulation, elliptical motion, save/load failures, eclipse geometry, and real OpenGL rendering. These laboratories bring transformations, shading, animation, and geometric reasoning together in one application.
+
+Leave the scene visible for questions. Press Escape only when the demonstration is over.
 
 ## If the examiner asks for code
 
-Open `Planet.cpp` for `T × R × R × S`, `SolarSystem.cpp` for the Moon hierarchy, `planet.vert` for the normal matrix, `planet.frag` for Blinn-Phong lighting, and `Camera.cpp` for frame-independent interpolation. The longer explanation and suggested answers are in `PROJECT_EXPLANATION.md`.
+Open `Planet.cpp` for Kepler's equation and analytic velocity, `SolarSystem.cpp` for validation and the Moon hierarchy, `LabUI.cpp` for the editors, and `Renderer.cpp` plus `debug_surface.frag` for graphics diagnostics. `EclipseModel.cpp` and `eclipse.frag` show sunlight occlusion; `ExperimentIO.cpp` shows staged validation and persistence. The detailed explanation and suggested answers are in `PROJECT_EXPLANATION.md`.

@@ -1,0 +1,26 @@
+[
+  {
+    "source": "https://commons.wikimedia.org/wiki/File:Radar2.gif",
+    "downloaded": "2026-11-10",
+    "author": "Flyingidiot",
+    "license": "Public domain, worldwide dedication by author",
+    "license_url": "https://commons.wikimedia.org/wiki/File:Radar2.gif",
+    "sha256": "c294e266dee93f7600436d3c836ea48faa1ad5bf83b914f0f344ce7e1512397d",
+    "modifications": "Original file unchanged. Runtime max-channel monochrome conversion and red tint for HUD display.",
+    "title": "Radar2.gif",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/8/88/Radar2.gif",
+    "file": "radar.gif"
+  },
+  {
+    "source": "https://commons.wikimedia.org/wiki/File:Rotating_earth_(large).gif",
+    "downloaded": "2026-11-10",
+    "author": "Marvel",
+    "license": "CC BY-SA 3.0 Unported",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "sha256": "b0acdc9a01f91f6123dbff38d4bee59d0d6e4b26071b5c83937b242b6b202378",
+    "modifications": "Original GIF unchanged. Runtime monochrome display adaptation; original and displayed artwork retain CC BY-SA 3.0.",
+    "title": "Rotating earth (large).gif",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif",
+    "file": "earth-rotation.gif"
+  }
+]
