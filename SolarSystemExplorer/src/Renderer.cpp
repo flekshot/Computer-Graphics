@@ -501,7 +501,9 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         const float w = std::max((vp * glm::vec4(center, 1)).w, 1e-4f);
         const float worldPerPixel = 2.0f * w / (projection[1][1] * static_cast<float>(height_));
         const float pulse = 1.0f + 0.2f * std::sin(realTime * 3.0f);
-        const float scale = std::min(1.0f + 3.0f * pulse * worldPerPixel / planet.data().radius, 1.6f);
+        // Keep the ~3 px width even when the planet is only a few pixels across;
+        // the upper bound only guards against degenerate projections.
+        const float scale = std::min(1.0f + 3.0f * pulse * worldPerPixel / planet.data().radius, 64.0f);
         glEnable(GL_STENCIL_TEST);
         glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
         glStencilMask(0x00);
@@ -593,8 +595,13 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
             atmosphere(glm::translate(glm::mat4(1), cometPosition) *
                            glm::scale(glm::mat4(1), glm::vec3(Comet::radius * 3.2f)),
                        vp, eye, {0.5f, 1.1f, 1.6f}, coma, true);
-            cometTails(system, vp, projection[1][1] * static_cast<float>(height_) * 0.5f);
         }
+    }
+    // Tails are particles, not a surface shell, so they also stay visible in wireframe.
+    // World-normal mode shows untone-mapped directions, so they are left out there.
+    if (settings.comet && settings.surfaceMode != SurfaceMode::Normals) {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        cometTails(system, vp, projection[1][1] * static_cast<float>(height_) * 0.5f);
     }
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     diagnostics(system, vp, eye, settings, selected);
