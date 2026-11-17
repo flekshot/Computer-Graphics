@@ -30,6 +30,14 @@ int main() {
         check(near(sse::deCasteljau(cubic.data(), 2, 0.25f), glm::vec3(0.25f, 0.5f, 0)),
               "Two control points must produce a straight segment");
         check(near(sse::deCasteljau(cubic.data(), 1, 0.7f), cubic[0]), "One control point is a constant curve");
+        {
+            // Degree 23: all control points on a line x = i must evaluate to x = 23 t.
+            std::vector<glm::vec3> line;
+            for (int i = 0; i < 24; ++i)
+                line.emplace_back(static_cast<float>(i), 0.0f, 0.0f);
+            check(near(sse::deCasteljau(line, 0.25f), glm::vec3(5.75f, 0, 0), 1e-3f),
+                  "De Casteljau must evaluate curves with more than 16 control points");
+        }
         bool rejected = false;
         try {
             sse::deCasteljau(nullptr, 0, 0.5f);
