@@ -93,7 +93,7 @@ Workshop tools are grouped into **Shape**, **Surface** and **Air** tabs. **View*
 
 ### Save and load experiments
 
-**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, and challenge progress. New files use `SSELAB 2`; existing version 1 files still open. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
+**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, challenge progress, and the rendering-technique choices (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). New files use `SSELAB 3`; version 1 and 2 files still open and keep the default techniques. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
 
 Start with the bundled [elliptical Mars](SolarSystemExplorer/examples/elliptical-mars.sselab), [solar eclipse](SolarSystemExplorer/examples/solar-eclipse.sselab), [lunar eclipse](SolarSystemExplorer/examples/lunar-eclipse.sselab), [ocean world](SolarSystemExplorer/examples/ocean-world.sselab), or [banded giant](SolarSystemExplorer/examples/banded-giant.sselab) experiments. Open them with **Load...** or pass their path to `--experiment`.
 
