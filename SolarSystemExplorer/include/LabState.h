@@ -3,6 +3,8 @@
 #include <cstdint>
 namespace sse {
 enum class SurfaceMode { Shaded = 0, Wireframe = 1, Normals = 2 };
+// Where and how the illumination model is evaluated for planets and moons.
+enum class ShadingModel { BlinnPhong = 0, Phong = 1, Gouraud = 2 };
 enum class LabView { Explore = 0, Orbit = 1, Eclipse = 2, Workshop = 3 };
 enum class WorkshopKind { Rocky = 0, Gas = 1 };
 
@@ -33,6 +35,11 @@ struct RenderSettings {
     SurfaceMode surfaceMode = SurfaceMode::Shaded;
     float ambient = 1.0f, diffuse = 1.0f, specular = 1.0f;
     bool trails = false, velocityVectors = false, apsides = false;
+    bool comet = true, bezierControl = false;
+    ShadingModel shading = ShadingModel::BlinnPhong;
+    bool lowPoly = false;
+    bool orthographic = false;
+    bool outline = true; // Stencil-buffer silhouette around the selected planet.
 };
 
 struct EclipseSettings {

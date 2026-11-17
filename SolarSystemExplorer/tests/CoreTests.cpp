@@ -194,6 +194,42 @@ int main() {
                       "All eight destination centers must be visible between panels in the initial overview");
             }
         }
+        {
+            // Perspective vs orthographic projection.
+            sse::Camera camera;
+            camera.setViewport(1440, 900, false);
+            for (int i = 0; i < 600; ++i)
+                camera.update(1.0f / 60, {});
+            const float aspect = 1.6f, depth = camera.distance();
+            const auto perspective = camera.projection(aspect);
+            check(perspective[2][3] == -1.0f && camera.orthographicBlend() == 0.0f,
+                  "The default camera must use a perspective projection");
+            camera.setOrthographic(true);
+            for (int i = 0; i < 120; ++i)
+                camera.update(1.0f / 60, {});
+            check(camera.orthographic() && camera.orthographicBlend() == 1.0f,
+                  "The projection transition must settle on orthographic");
+            const auto ortho = camera.projection(aspect);
+            check(ortho[2][3] == 0.0f && ortho[3][3] == 1.0f, "An orthographic projection must keep w == 1");
+            const auto ndcY = [](const glm::mat4& projection, const glm::vec3& viewPoint) {
+                const auto clip = projection * glm::vec4(viewPoint, 1);
+                return clip.y / clip.w;
+            };
+            check(near(ndcY(ortho, {0, 3, -depth * 0.5f}), ndcY(ortho, {0, 3, -depth * 1.5f})),
+                  "Orthographic projection must not foreshorten with depth");
+            check(ndcY(perspective, {0, 3, -depth * 0.5f}) > ndcY(perspective, {0, 3, -depth * 1.5f}),
+                  "Perspective projection must shrink distant objects");
+            check(near(ndcY(ortho, {0, 3, -depth}), ndcY(perspective, {0, 3, -depth})),
+                  "Both projections must agree on the focus plane so switching keeps the subject's size");
+            camera.setOrthographic(false);
+            camera.update(1.0f / 60, {});
+            const float blend = camera.orthographicBlend();
+            check(blend > 0.0f && blend < 1.0f, "Switching back must animate through intermediate projections");
+            const auto mixed = camera.projection(aspect);
+            check(std::isfinite(mixed[0][0]) &&
+                      near(ndcY(mixed, {0, 3, -depth}), ndcY(perspective, {0, 3, -depth})),
+                  "A blended projection must also preserve the focus plane");
+        }
         std::cout << "PASS: " << checks << " core assertions (orbits, time, hierarchy, mesh, camera)\n";
         return 0;
     } catch (const std::exception& e) {

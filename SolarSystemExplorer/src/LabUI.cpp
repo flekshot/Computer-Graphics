@@ -52,9 +52,50 @@ void UIManager::graphicsControls(RenderSettings& settings) {
     ImGui::TextUnformatted("Specular");
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##specular", &settings.specular, 0, 3, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::TextUnformatted("Shading model  [G]");
+    int shading = static_cast<int>(settings.shading);
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::Combo("##shading", &shading, "Blinn-Phong (per pixel)\0Phong (per pixel)\0Gouraud (per vertex)\0"))
+        settings.shading = static_cast<ShadingModel>(shading);
+    hint(settings.shading == ShadingModel::Gouraud
+             ? "Gouraud lights each vertex and interpolates colour, so highlights smear across large "
+               "triangles. Turn on low-poly spheres to see it clearly."
+             : settings.shading == ShadingModel::Phong
+             ? "Phong interpolates the normal and reflects the light direction R = reflect(-L, N) per pixel."
+             : "Blinn-Phong uses the half vector H = normalize(L + V) per pixel: cheaper and more stable.");
     ImGui::EndDisabled();
-    if (ImGui::Button("Reset lighting", {-1, 28}))
+    // Also useful in wireframe mode, where the coarse triangle mesh becomes visible.
+    ImGui::Checkbox("Low-poly spheres (16 x 8)", &settings.lowPoly);
+    if (ImGui::Button("Reset lighting", {-1, 28})) {
         settings.ambient = settings.diffuse = settings.specular = 1;
+        settings.shading = ShadingModel::BlinnPhong;
+        settings.lowPoly = false;
+    }
+    ImGui::BeginDisabled(settings.surfaceMode != SurfaceMode::Shaded);
+    ImGui::Checkbox("Stencil outline of selection  [O]", &settings.outline);
+    ImGui::EndDisabled();
+    hint("Two passes: the planet writes 1 into the stencil buffer, then a larger copy is drawn "
+         "only where the stencil test (!= 1) passes.");
+    section("PROJECTION  [P]");
+    int projection = settings.orthographic ? 1 : 0;
+    if (ImGui::RadioButton("Perspective", &projection, 0))
+        settings.orthographic = false;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Orthographic", &projection, 1))
+        settings.orthographic = true;
+    hint(settings.orthographic
+             ? "Parallel projection: no foreshortening, so equal sizes stay equal at any depth. "
+               "The view volume is a box sized to match the focus distance."
+             : "Perspective divide by w: distant worlds shrink and parallel lines converge.");
+    section("COMET & BEZIER CURVES");
+    ImGui::Checkbox("Comet  [C]", &settings.comet);
+    ImGui::BeginDisabled(!settings.comet);
+    ImGui::Checkbox("Bezier control polygon  [B]", &settings.bezierControl);
+    ImGui::EndDisabled();
+    hint(settings.bezierControl
+             ? "White crosses are anchors, orange crosses are handles. The path is four cubic segments "
+               "evaluated with De Casteljau's algorithm; collinear handles keep it C1-smooth."
+             : "The comet follows a closed cubic Bezier loop and speeds up near the Sun (vis-viva).");
 }
 
 void UIManager::orbitPanel(SolarSystem& system, RenderSettings& settings, int selected, UIActions& actions) {

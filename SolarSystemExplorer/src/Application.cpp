@@ -115,6 +115,11 @@ int Application::run() {
     }
     if (options_.lab) lab.view = *options_.lab;
     if (options_.surfaceMode) settings.surfaceMode = *options_.surfaceMode;
+    if (options_.shading) settings.shading = *options_.shading;
+    settings.orthographic = settings.orthographic || options_.orthographic;
+    settings.lowPoly = settings.lowPoly || options_.lowPoly;
+    settings.bezierControl = settings.bezierControl || options_.bezierControl;
+    if (options_.noComet) settings.comet = settings.bezierControl = false;
     if (options_.lunar) lab.eclipse.lunar = *options_.lunar;
     if (options_.observer) lab.eclipse.observerView = *options_.observer;
     if (options_.eclipsePhase) lab.eclipse.phaseDegrees = *options_.eclipsePhase;
@@ -254,6 +259,18 @@ int Application::run() {
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                 system.setPaused(!system.paused());
+            if (ImGui::IsKeyPressed(ImGuiKey_O, false))
+                settings.outline = !settings.outline;
+            if (ImGui::IsKeyPressed(ImGuiKey_P, false))
+                settings.orthographic = !settings.orthographic;
+            if (ImGui::IsKeyPressed(ImGuiKey_G, false))
+                settings.shading = static_cast<ShadingModel>((static_cast<int>(settings.shading) + 1) % 3);
+            if (ImGui::IsKeyPressed(ImGuiKey_C, false))
+                settings.comet = !settings.comet;
+            if (ImGui::IsKeyPressed(ImGuiKey_B, false)) {
+                settings.bezierControl = !settings.bezierControl;
+                settings.comet = settings.comet || settings.bezierControl;
+            }
             if (ImGui::IsKeyPressed(ImGuiKey_Equal) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd))
                 system.setSpeed(system.speed() * 1.4f);
             if (ImGui::IsKeyPressed(ImGuiKey_Minus) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract))
@@ -294,6 +311,7 @@ int Application::run() {
             workshopCamera.update(dt, {});
             workshopCamera.avoidSphere({}, radius);
         } else {
+        camera.setOrthographic(settings.orthographic);
         camera.update(dt, camera.followed() >= 0 ? system.planets()[camera.followed()].position(system.days())
                                                  : glm::vec3(0));
         camera.avoidSphere({0, 0, 0}, SolarSystem::sunRadius);
@@ -325,7 +343,7 @@ int Application::run() {
         } else {
             renderer.render(system, camera, settings, selected, static_cast<float>(now), lab.view == LabView::Explore);
             if (settings.labels && !options_.noUI)
-                ui.labels(system, camera, selected);
+                ui.labels(system, camera, selected, settings.comet);
         }
         ui.finish(!options_.noUI);
         if (!options_.capture.empty() && frame + 1 == options_.frames)

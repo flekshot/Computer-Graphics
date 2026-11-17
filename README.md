@@ -68,6 +68,15 @@ The recent trajectory shows the preceding part of the orbit, and the velocity ar
 
 In Orbit Lab's **Graphics** tab, select **Shaded**, **Wireframe**, or **World normals**. Wireframe reveals the actual indexed triangle mesh. World normals encodes surface directions as RGB and adds short normal-direction lines on the selected planet. In Shaded mode, adjust ambient, diffuse, and specular multipliers independently; bloom and exposure are also available.
 
+### Rendering techniques
+
+The same **Graphics** tab (and the keyboard shortcuts below) exposes several classic pipeline techniques side by side:
+
+- **Shading models (G):** per-pixel **Blinn-Phong** (half vector), per-pixel **Phong** (reflection vector), and per-vertex **Gouraud** shading, where the vertex shader evaluates the lighting and the rasterizer interpolates it. **Low-poly spheres** (16 × 8) make the Gouraud highlight artefacts obvious and also simplify the wireframe view.
+- **Projection (P):** switch between **perspective** and **orthographic** projection. The orthographic view volume is sized to the focus distance, so the selected planet keeps its size, and the camera animates smoothly between the two matrices.
+- **Stencil outline (O):** the selected planet writes into the stencil buffer; an enlarged copy is then drawn only where the stencil test fails, leaving a glowing, constant-width silhouette.
+- **Bézier comet (C / B):** a periodic comet travels on a closed loop of four cubic Bézier segments evaluated with **De Casteljau's algorithm**. It moves faster near the Sun (vis-viva timing) and grows an ion tail pointing away from the Sun and a curved dust tail, both drawn as point sprites. **B** shows the control polygon: white crosses are anchors, orange crosses are handles.
+
 ### Eclipse Lab
 
 This separate illustrative scene compares **solar** and **lunar** eclipses in two stacked views: system geometry above, and a larger target-surface detail below. **Observer viewpoint** changes the lower view. Adjust phase from −180° to 180° and inclination from −30° to 30°, or choose **Total alignment**, **Partial alignment**, and **Clear of shadow**. Animate the alignment with its own degrees-per-second control.
@@ -111,6 +120,16 @@ These screenshots were captured from the application.
 | --- | --- |
 | ![Procedural rocky world in the refreshed interface](SolarSystemExplorer/docs/screenshots/workshop.png) | ![Procedural gas giant and saved challenges](SolarSystemExplorer/docs/screenshots/workshop-gas.png) |
 | Shape terrain, oceans, clouds and atmosphere from a reproducible seed. | Experiment with bands, turbulence, palettes and explicitly checked challenges. |
+
+| Bézier comet | Orthographic projection |
+| --- | --- |
+| ![Comet on its Bezier loop with the control polygon](SolarSystemExplorer/docs/screenshots/comet-bezier.png) | ![Orthographic overview with the comet near perihelion](SolarSystemExplorer/docs/screenshots/orthographic.png) |
+| A closed cubic Bézier loop with anchors, handles, an ion tail and a curved dust tail. | A parallel projection: no foreshortening, sized to match the focus distance. |
+
+| Stencil outline | Gouraud on a low-poly sphere |
+| --- | --- |
+| ![Stencil-buffer outline around Saturn](SolarSystemExplorer/docs/screenshots/stencil-outline.png) | ![Gouraud shading on low-poly Earth and Moon](SolarSystemExplorer/docs/screenshots/gouraud-low-poly.png) |
+| The selected planet is marked in the stencil buffer and outlined in a second pass. | Per-vertex lighting on a 16 × 8 mesh; compare with Phong using the G key. |
 
 ## Technology stack
 
@@ -168,6 +187,10 @@ Alternatively, run `BuildAndRun.bat` inside `SolarSystemExplorer/` to configure,
 | Space | Pause/resume simulation time, or animate/pause the eclipse alignment |
 | + / − | Change simulation speed |
 | 0 or R | Return to the system overview |
+| G | Cycle Blinn-Phong / Phong / Gouraud shading |
+| P | Toggle perspective / orthographic projection |
+| O | Toggle the stencil outline around the selected planet |
+| C / B | Show the Bézier comet / its control polygon |
 | Orbits / Labels / Bloom | Toggle the corresponding visual feature |
 | H | Show or hide the flight manual |
 | Esc | Exit; while editing a numeric field, cancel that edit first |
@@ -202,6 +225,7 @@ SolarSystemExplorer/
 | `Planet` / `SolarSystem` | Store planet data and calculate time, orbits, rotation, and the Earth-Moon hierarchy |
 | `Camera` | Handles orbiting, panning, zooming, smooth focus, and planet tracking |
 | `Geometry` | Generates spheres, rings, orbit lines, and star positions |
+| `Bezier` / `Comet` | Evaluate Bézier curves with De Casteljau's algorithm and time the comet along its closed loop |
 | `Mesh` / `Shader` / `Texture` / `GLObject` | Manage geometry buffers, shader programs, textures, and GPU resource lifetime |
 | `Renderer` | Draws opaque and transparent objects, resolves MSAA, and applies bloom and tone mapping |
 | `UIManager` | Builds the controls, information panels, help, and projected labels |

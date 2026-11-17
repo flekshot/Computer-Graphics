@@ -12,6 +12,8 @@ struct Options {
          benchmark = false, labSmoke = false, workshopSmoke = false;
     std::optional<LabView> lab;
     std::optional<SurfaceMode> surfaceMode;
+    std::optional<ShadingModel> shading;
+    bool orthographic = false, lowPoly = false, bezierControl = false, noComet = false;
     std::optional<bool> lunar, observer;
     std::optional<float> eclipsePhase, eclipseInclination;
     std::optional<WorkshopKind> workshopKind;

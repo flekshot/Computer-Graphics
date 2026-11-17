@@ -38,6 +38,11 @@ void help() {
                  "  --kind KIND         rocky or gas (opens Planet Workshop)\n"
                  "  --seed N            Workshop terrain seed (0 .. 999999)\n"
                  "  --render-mode MODE  shaded, wireframe, or normals\n"
+                 "  --shading MODEL     blinn-phong, phong, or gouraud\n"
+                 "  --orthographic      Start with an orthographic projection\n"
+                 "  --low-poly          Draw planets with a coarse 16x8 sphere\n"
+                 "  --bezier            Show the comet's Bezier control polygon\n"
+                 "  --no-comet          Hide the Bezier comet\n"
                  "  --experiment FILE   Load a saved .sselab experiment\n"
                  "  --eclipse KIND      solar or lunar (opens Eclipse Lab)\n"
                  "  --eclipse-phase N   Alignment phase offset (-180 .. 180 degrees)\n"
@@ -106,7 +111,25 @@ int explorerMain(int argc, char** argv) {
                     options.surfaceMode = sse::SurfaceMode::Normals;
                 else
                     throw std::invalid_argument("--render-mode must be shaded, wireframe, or normals");
-            } else if (flag == "--eclipse") {
+            } else if (flag == "--shading") {
+                const auto model = value();
+                if (model == "blinn-phong")
+                    options.shading = sse::ShadingModel::BlinnPhong;
+                else if (model == "phong")
+                    options.shading = sse::ShadingModel::Phong;
+                else if (model == "gouraud")
+                    options.shading = sse::ShadingModel::Gouraud;
+                else
+                    throw std::invalid_argument("--shading must be blinn-phong, phong, or gouraud");
+            } else if (flag == "--orthographic")
+                options.orthographic = true;
+            else if (flag == "--low-poly")
+                options.lowPoly = true;
+            else if (flag == "--bezier")
+                options.bezierControl = true;
+            else if (flag == "--no-comet")
+                options.noComet = true;
+            else if (flag == "--eclipse") {
                 const auto kind = value();
                 if (kind != "solar" && kind != "lunar")
                     throw std::invalid_argument("--eclipse must be solar or lunar");
