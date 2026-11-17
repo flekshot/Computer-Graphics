@@ -44,6 +44,8 @@ void validateSettings(const SolarSystem& system, const RenderSettings& render, c
     require(inRange(render.exposure, 0.2f, 3.0f), "Exposure must be between 0.2 and 3.");
     require(render.surfaceMode == SurfaceMode::Shaded || render.surfaceMode == SurfaceMode::Wireframe ||
                 render.surfaceMode == SurfaceMode::Normals, "Unknown surface visualization mode.");
+    require(render.shading == ShadingModel::BlinnPhong || render.shading == ShadingModel::Phong ||
+                render.shading == ShadingModel::Gouraud, "Unknown shading model.");
     require(inRange(render.ambient, 0.0f, 3.0f) && inRange(render.diffuse, 0.0f, 3.0f) &&
                 inRange(render.specular, 0.0f, 3.0f), "Light multipliers must be between 0 and 3.");
     require(lab.view == LabView::Explore || lab.view == LabView::Orbit || lab.view == LabView::Eclipse ||
@@ -214,7 +216,7 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         std::ostringstream output;
         output.imbue(std::locale::classic());
         output << std::setprecision(std::numeric_limits<double>::max_digits10);
-        output << "SSELAB 2\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
+        output << "SSELAB 3\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
         output << "\nrender " << render.orbits << ' ' << render.labels << ' ' << render.bloom << ' ' << render.exposure << ' '
                << static_cast<int>(render.surfaceMode) << ' ' << render.ambient << ' ' << render.diffuse << ' '
                << render.specular << ' ' << render.trails << ' ' << render.velocityVectors << ' ' << render.apsides;
@@ -241,6 +243,9 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         output << "\nmissions " << lab.missions.active;
         for (const bool completed : lab.missions.completed)
             output << ' ' << completed;
+        output << "\ntechniques " << render.comet << ' ' << render.bezierControl << ' '
+               << static_cast<int>(render.shading) << ' ' << render.lowPoly << ' ' << render.orthographic << ' '
+               << render.outline;
         output << "\norbits 8\n";
         for (size_t i = 0; i < system.planets().size(); ++i) {
             const auto& orbit = system.planets()[i].orbitParameters();
@@ -272,7 +277,7 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         Reader reader(contents);
         reader.expect("SSELAB");
         const auto version = reader.number<int>("version");
-        require(version == 1 || version == 2, "Unsupported experiment version; expected SSELAB 1 or 2.");
+        require(version >= 1 && version <= 3, "Unsupported experiment version; expected SSELAB 1, 2 or 3.");
         SolarSystem stagedSystem;
         RenderSettings stagedRender;
         LabState stagedLab;
@@ -310,7 +315,7 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         eclipse.phaseDegrees = reader.number<float>("eclipse phase");
         eclipse.inclinationDegrees = reader.number<float>("eclipse inclination");
         eclipse.angularSpeed = reader.number<float>("eclipse angular speed");
-        if (version == 2) {
+        if (version >= 2) {
             reader.expect("workshop");
             auto& workshop = stagedLab.workshop;
             workshop.kind = static_cast<WorkshopKind>(reader.number<int>("workshop planet kind"));
@@ -343,6 +348,16 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
                 completed = reader.boolean("completed mission");
         } else {
             require(stagedLab.view != LabView::Workshop, "SSELAB 1 experiments cannot select the workshop view.");
+        }
+        if (version >= 3) {
+            // Rendering techniques lab: older files keep the defaults.
+            reader.expect("techniques");
+            stagedRender.comet = reader.boolean("comet");
+            stagedRender.bezierControl = reader.boolean("Bezier control polygon");
+            stagedRender.shading = static_cast<ShadingModel>(reader.number<int>("shading model"));
+            stagedRender.lowPoly = reader.boolean("low-poly spheres");
+            stagedRender.orthographic = reader.boolean("orthographic projection");
+            stagedRender.outline = reader.boolean("stencil outline");
         }
         validateSettings(stagedSystem, stagedRender, stagedLab, stagedSelected);
         reader.expect("orbits");

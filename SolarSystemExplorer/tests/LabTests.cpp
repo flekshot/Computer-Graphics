@@ -45,7 +45,9 @@ bool sameRender(const sse::RenderSettings& a, const sse::RenderSettings& b) {
     return a.orbits == b.orbits && a.labels == b.labels && a.bloom == b.bloom &&
            a.exposure == b.exposure && a.surfaceMode == b.surfaceMode && a.ambient == b.ambient &&
            a.diffuse == b.diffuse && a.specular == b.specular && a.trails == b.trails &&
-           a.velocityVectors == b.velocityVectors && a.apsides == b.apsides;
+           a.velocityVectors == b.velocityVectors && a.apsides == b.apsides && a.comet == b.comet &&
+           a.bezierControl == b.bezierControl && a.shading == b.shading && a.lowPoly == b.lowPoly &&
+           a.orthographic == b.orthographic && a.outline == b.outline;
 }
 bool sameWorkshop(const sse::WorkshopSettings& a, const sse::WorkshopSettings& b) {
     return a.kind == b.kind && a.seed == b.seed && a.radius == b.radius && a.relief == b.relief &&
@@ -215,6 +217,8 @@ void testPersistence() {
     render.exposure = 2.1234567f; render.surfaceMode = sse::SurfaceMode::Normals;
     render.ambient = 0.1234567f; render.diffuse = 2.2345678f; render.specular = 0.3456789f;
     render.trails = true; render.velocityVectors = true; render.apsides = true;
+    render.comet = false; render.bezierControl = true; render.shading = sse::ShadingModel::Gouraud;
+    render.lowPoly = true; render.orthographic = true; render.outline = false;
     sse::LabState lab;
     lab.view = sse::LabView::Workshop;
     lab.eclipse = {true, true, false, true, -123.4567f, -12.34567f, 24.56789f};
@@ -233,7 +237,9 @@ void testPersistence() {
     check(sse::saveExperiment(file, source, render, lab, 6, error), "Unicode experiment path must save");
     check(error.empty(), "Successful saving must clear any previous error");
     const auto valid = read(file);
-    check(valid.rfind("SSELAB 2\n", 0) == 0, "Saves must advertise the version 2 format");
+    check(valid.rfind("SSELAB 3\n", 0) == 0, "Saves must advertise the version 3 format");
+    check(valid.find("\ntechniques 0 1 2 1 1 0\n") != std::string::npos,
+          "Rendering-technique settings must be written in a labelled record");
     sse::SolarSystem loaded;
     sse::RenderSettings loadedRender;
     sse::LabState loadedLab;
@@ -270,7 +276,29 @@ void testPersistence() {
               "A failed load must not partially mutate any live experiment state");
     };
     rejected("");
-    rejected(replaceOnce(valid, "SSELAB 2", "SSELAB 99"));
+    rejected(replaceOnce(valid, "SSELAB 3", "SSELAB 99"));
+    rejected(changeField(valid, "techniques", 3, "3"));
+    rejected(changeField(valid, "techniques", 3, "-1"));
+    rejected(changeField(valid, "techniques", 1, "2"));
+    {
+        // Version 2 files have no techniques record and keep the default techniques.
+        auto version2 = replaceOnce(valid, "SSELAB 3", "SSELAB 2");
+        const auto record = version2.find("\ntechniques ");
+        version2.erase(record, version2.find('\n', record + 1) - record);
+        write(bad, version2);
+        sse::SolarSystem v2System;
+        sse::RenderSettings v2Render;
+        sse::LabState v2Lab;
+        int v2Selected = -1;
+        check(sse::loadExperiment(bad, v2System, v2Render, v2Lab, v2Selected, error),
+              "Version 2 experiments must still load");
+        auto expected = render;
+        expected.comet = true; expected.bezierControl = false; expected.shading = sse::ShadingModel::BlinnPhong;
+        expected.lowPoly = false; expected.orthographic = false; expected.outline = true;
+        check(sameRender(expected, v2Render) && sameLab(lab, v2Lab) && v2Selected == 6,
+              "Version 2 loading must reset only the technique settings");
+        rejected(replaceOnce(valid, "SSELAB 3", "SSELAB 2")); // A v2 file cannot carry the v3 record.
+    }
     rejected(valid.substr(0, valid.size() / 2));
     rejected(valid + "unexpected trailing data\n");
     rejected(replaceOnce(valid, "orbits 8", "orbits 9"));
@@ -325,7 +353,7 @@ void testPersistence() {
     for (size_t field : {2u, 3u, 4u, 5u, 6u})
         rejected(changeField(valid, "missions", field, "2"));
     rejected(replaceOnce(valid, "\nwater_color ", "\nland_color "));
-    auto legacy = replaceOnce(valid, "SSELAB 2", "SSELAB 1");
+    auto legacy = replaceOnce(valid, "SSELAB 3", "SSELAB 1");
     const auto workshopStart = legacy.find("\nworkshop ");
     legacy.erase(workshopStart, legacy.find("\norbits ", workshopStart) - workshopStart);
     rejected(legacy); // A version 1 file cannot select the newly added fourth view.
@@ -337,10 +365,14 @@ void testPersistence() {
     legacy = replaceOnce(legacy, "lab 3", "lab 2");
     write(bad, legacy);
     check(sse::loadExperiment(bad, loaded, loadedRender, loadedLab, selected, error), "Version 1 experiments must still load");
+    auto legacyRender = render;
+    legacyRender.comet = true; legacyRender.bezierControl = false;
+    legacyRender.shading = sse::ShadingModel::BlinnPhong;
+    legacyRender.lowPoly = false; legacyRender.orthographic = false; legacyRender.outline = true;
     auto legacyLab = lab;
     legacyLab.view = sse::LabView::Eclipse;
     legacyLab.workshop = {}; legacyLab.missions = {};
-    check(sameSystem(source, loaded) && sameRender(render, loadedRender) && sameLab(legacyLab, loadedLab) && selected == 6,
+    check(sameSystem(source, loaded) && sameRender(legacyRender, loadedRender) && sameLab(legacyLab, loadedLab) && selected == 6,
           "Version 1 loading must restore existing state and reset workshop/progress to defaults");
     // Defaults, overview selection and false booleans must also roundtrip.
     sse::SolarSystem defaults;
