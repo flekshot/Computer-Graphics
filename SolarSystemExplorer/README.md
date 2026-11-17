@@ -137,7 +137,7 @@ The scene uses a coherent illustrative scale to make the bodies and shadows visi
 
 ### Save and reopen an experiment
 
-Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the versioned `SSELAB 2` text format (version 1 files still load). Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; eclipse kind, alignment, animation, cones, and observer setting; procedural world settings and palette; and challenge progress.
+Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the versioned `SSELAB 3` text format (version 1 and 2 files still load and keep the default rendering techniques). Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; eclipse kind, alignment, animation, cones, and observer setting; procedural world settings and palette; challenge progress; and the rendering techniques (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline).
 
 Camera poses and the session-only Motion preference are not saved. Loading refocuses the saved planet selection, or returns to overview if none was selected. A malformed or unsupported file is rejected with a useful error, and the live state is replaced only after the complete file validates. You can also launch with `--experiment` followed by a saved file path.
 
