@@ -6,9 +6,14 @@ namespace sse {
 glm::vec3 deCasteljau(const glm::vec3* points, std::size_t count, float t) {
     if (!points || count == 0)
         throw std::invalid_argument("De Casteljau needs at least one control point");
-    if (count > 16)
-        throw std::invalid_argument("De Casteljau supports up to 16 control points");
-    std::array<glm::vec3, 16> work{};
+    // Small curves (all of ours) stay on the stack; higher degrees use the heap.
+    std::array<glm::vec3, 16> local{};
+    std::vector<glm::vec3> heap;
+    glm::vec3* work = local.data();
+    if (count > local.size()) {
+        heap.resize(count);
+        work = heap.data();
+    }
     for (std::size_t i = 0; i < count; ++i)
         work[i] = points[i];
     // Level k replaces n-k points with n-k-1 interpolated points.

@@ -223,7 +223,7 @@ Total alignment uses phase 0° in both modes. Partial alignment uses 8° for sol
 
 ## 14. Experiment persistence
 
-Native Windows Save/Load dialogs use `.sselab` files. `ExperimentIO` writes a versioned `SSELAB 1` text record containing all eight orbital configurations, simulation day/speed/pause, selected planet, graphics/overlay settings, active laboratory, and eclipse settings. Numeric serialization uses a fixed locale and sufficient precision for roundtrips.
+Native Windows Save/Load dialogs use `.sselab` files. `ExperimentIO` writes a versioned `SSELAB 3` text record containing all eight orbital configurations, simulation day/speed/pause, selected planet, graphics/overlay settings, active laboratory, eclipse and workshop settings, challenge progress, and a `techniques` record (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). Version 1 and 2 files still load; their missing records keep the defaults. Numeric serialization uses a fixed locale and sufficient precision for roundtrips.
 
 Loading parses into temporary model and settings objects. The parser checks the version, record order/counts, finite values, supported ranges, and orbital clearance before replacing live state. Invalid or truncated files report an error without partially modifying the experiment. Saving validates state and writes through a temporary file before replacing the destination.
 
