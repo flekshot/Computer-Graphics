@@ -4,6 +4,7 @@
 #include "ExperimentDialogs.h"
 #include "ExperimentIO.h"
 #include "WorkshopRenderer.h"
+#include "DemoTour.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -132,6 +133,11 @@ int Application::run() {
         lab.workshop.animate = false;
     }
     if (options_.noBloom) settings.bloom = false;
+    if (options_.quality) settings.quality = *options_.quality;
+    if (options_.pipelineStage) settings.pipelineStage = *options_.pipelineStage;
+    settings.bloomCompare = options_.compareBloom;
+    if (options_.noAsteroids) settings.asteroids = false;
+    ui.showProject(options_.teamCard);
     if (lab.view == LabView::Orbit && options_.experiment.empty()) {
         if (selected < 0) {
             select(3);
@@ -151,7 +157,10 @@ int Application::run() {
         double now = glfwGetTime();
         const float realDelta = static_cast<float>(std::clamp(now - previous, 0.0, 0.1));
         previous = now;
-        const float dt = options_.frames > 0 ? 1.0f / 60.0f : realDelta;
+        const float dt = (options_.demoTour || !options_.recordFrames.empty()) ? 1.0f / 30.0f :
+                         options_.frames > 0 ? 1.0f / 60.0f : realDelta;
+        if (options_.demoTour)
+            advanceDemoTour(frame, system, camera, workshopCamera, settings, lab, selected, ui);
 #ifdef SSE_WITH_TESTS
         if (options_.smoke)
             smokeFrame(frame, window_, system, camera, renderer, settings, select);
@@ -169,7 +178,7 @@ int Application::run() {
         renderer.resize(width, height);
         // ImGui may dismiss an ordinary popup while starting the next frame.
         // Keep its ownership of this Escape press before that state disappears.
-        const bool escapeOwnedByUI = ui.helpVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
+        const bool escapeOwnedByUI = ui.helpVisible() || ui.projectVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
             ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         ui.begin();
         float sceneRadius = 60;
@@ -234,6 +243,17 @@ int Application::run() {
         }
         const auto& io = ImGui::GetIO();
         if (!io.WantCaptureKeyboard && !ImGui::IsAnyItemActive()) {
+            if (lab.view == LabView::Explore || lab.view == LabView::Orbit) {
+                if (ImGui::IsKeyPressed(ImGuiKey_F6, false)) {
+                    settings.bloom = !settings.bloom;
+                    settings.bloomCompare = false;
+                    settings.pipelineStage = 0;
+                }
+                if (ImGui::IsKeyPressed(ImGuiKey_F7, false) && settings.surfaceMode != SurfaceMode::Normals) {
+                    settings.bloomCompare = !settings.bloomCompare;
+                    settings.pipelineStage = 0;
+                }
+            }
             if (lab.view == LabView::Eclipse) {
                 if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
                     lab.eclipse.animate = !lab.eclipse.animate;
@@ -252,9 +272,10 @@ int Application::run() {
             for (int i = 0; i < 8; ++i)
                 if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_1 + i), false))
                     select(i);
-            if (ImGui::IsKeyPressed(ImGuiKey_0, false) || ImGui::IsKeyPressed(ImGuiKey_R, false))
+            if (ImGui::IsKeyPressed(ImGuiKey_0, false) || ImGui::IsKeyPressed(ImGuiKey_R, false)) {
                 if (lab.view == LabView::Orbit) camera.overview();
                 else select(-1);
+            }
             if (ImGui::IsKeyPressed(ImGuiKey_F, false) && selected >= 0)
                 select(selected);
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
@@ -341,11 +362,16 @@ int Application::run() {
                 workshopRenderer = std::make_unique<WorkshopRenderer>(options_.root);
             workshopRenderer->render(lab.workshop, settings, workshopCamera, width, height);
         } else {
-            renderer.render(system, camera, settings, selected, static_cast<float>(now), lab.view == LabView::Explore);
+            renderer.render(system, camera, settings, selected,
+                            options_.demoTour ? static_cast<float>(frame) / 30.0f : static_cast<float>(now),
+                            lab.view == LabView::Explore);
             if (settings.labels && !options_.noUI)
                 ui.labels(system, camera, selected, settings.comet);
         }
+        if (!options_.noUI) ui.inspectionOverlay(settings, lab.view);
+        if (options_.demoTour && !options_.noUI) drawDemoCaption(frame);
         ui.finish(!options_.noUI);
+        if (!options_.recordFrames.empty()) writeDemoFrame(options_.recordFrames, frame, width, height);
         if (!options_.capture.empty() && frame + 1 == options_.frames)
             renderer.capture(options_.capture, width, height);
         for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {

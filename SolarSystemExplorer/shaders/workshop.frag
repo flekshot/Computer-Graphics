@@ -8,6 +8,7 @@ uniform int uLayer;
 uniform int uKind;
 uniform int uSurfaceMode;
 uniform vec3 uEye;
+uniform vec3 uLightDirection;
 uniform vec3 uViewport;
 uniform vec3 uLandColor;
 uniform vec3 uWaterColor;
@@ -67,9 +68,13 @@ void background() {
 void main() {
     if (uLayer == 3) { background(); return; }
     vec3 normal = normalize(vNormal);
+    if (uSurfaceMode == 2) {
+        fragColor = vec4(normal * .5 + .5, 1.0);
+        return;
+    }
     vec3 eye = normalize(uEye - vWorld);
     vec3 direction = normalize(vDirection);
-    vec3 light = normalize(vec3(-3.5, 4.3, 6.8));
+    vec3 light = uLightDirection;
     float facing = dot(normal, eye);
     float diffuse = max(dot(normal, light), 0.0);
     vec3 offset = vec3(mod(uSeed, 997.0) * .071, mod(uSeed, 313.0) * .113, mod(uSeed, 719.0) * .037);
@@ -91,10 +96,6 @@ void main() {
         float alpha = smoothstep(threshold, threshold + .12, cloud) * .68 * smoothstep(.04, .32, facing);
         vec3 color = vec3(.84, .92, 1.0) * (.11 * uAmbient + 1.65 * diffuse * uDiffuse);
         fragColor = vec4(color, alpha);
-        return;
-    }
-    if (uSurfaceMode == 2) {
-        fragColor = vec4(normal * .5 + .5, 1.0);
         return;
     }
     if (uLayer == 0 && uKind == 0 && uSurfaceMode == 0) {
@@ -133,7 +134,9 @@ void main() {
         float thinBands = .5 + .5 * sin(latitude * uGasBands * 8.0 + warp * 6.0);
         albedo *= .91 + thinBands * .12;
     }
-    vec3 halfDirection = normalize(light + eye);
+    vec3 halfVector = light + eye;
+    // The half vector can be zero when the light is aimed away from the camera.
+    vec3 halfDirection = halfVector * inversesqrt(max(dot(halfVector, halfVector), 1e-8));
     float specular = pow(max(dot(normal, halfDirection), 0.0), mix(24.0, 100.0, ocean));
     specular *= step(.001, diffuse) * mix(.045, .85, ocean);
     float rim = pow(1.0 - max(0.0, facing), 4.0);

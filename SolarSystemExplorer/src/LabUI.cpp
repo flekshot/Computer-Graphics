@@ -32,6 +32,16 @@ void hint(const char* message) {
 
 void UIManager::graphicsControls(RenderSettings& settings) {
     section("GRAPHICS LAB");
+    ImGui::Checkbox("Asteroid belt (instanced)", &settings.asteroids);
+    ImGui::TextUnformatted("Render quality");
+    ImGui::SetNextItemWidth(-1);
+    ImGui::Combo("##quality", &settings.quality, "Low / 1 sample\0High / up to 4 samples\0");
+    ImGui::BeginDisabled(settings.surfaceMode == SurfaceMode::Normals);
+    if (ImGui::Checkbox("Compare Bloom off / on  [F7]", &settings.bloomCompare)) settings.pipelineStage = 0;
+    ImGui::TextUnformatted("Pipeline inspector");
+    ImGui::SetNextItemWidth(-1);
+    ImGui::Combo("##pipeline", &settings.pipelineStage, "Final composite\0Scene without Bloom\0Extracted highlights\0Blurred highlights\0");
+    ImGui::EndDisabled();
     int surface = static_cast<int>(settings.surfaceMode);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::Combo("##surface", &surface, "Shaded\0Wireframe\0World normals\0"))
@@ -115,7 +125,10 @@ void UIManager::orbitPanel(SolarSystem& system, RenderSettings& settings, int se
         if (ImGui::BeginTabItem("Graphics")) {
             graphicsControls(settings);
             ImGui::Spacing();
-            ImGui::Checkbox("Bloom", &settings.bloom);
+            if (ImGui::Checkbox("Bloom", &settings.bloom)) {
+                settings.bloomCompare = false;
+                settings.pipelineStage = 0;
+            }
             ImGui::TextUnformatted("Exposure");
             ImGui::SetNextItemWidth(-1);
             ImGui::SliderFloat("##exposure", &settings.exposure, 0.2f, 3, "%.2f",

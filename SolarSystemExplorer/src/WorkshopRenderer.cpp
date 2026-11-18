@@ -141,6 +141,9 @@ void WorkshopRenderer::render(const WorkshopSettings& settings, const RenderSett
     glEnable(GL_DEPTH_TEST);
     surface_.set("uVP", camera.projection(float(width) / float(height)) * camera.view());
     surface_.set("uEye", camera.position());
+    const auto light = graphics.surfaceMode == SurfaceMode::Shaded
+                     ? workshopLightDirection(settings) : workshopLightDirection(WorkshopSettings{});
+    surface_.set("uLightDirection", light);
     surface_.set("uKind", int(settings.kind));
     surface_.set("uSeed", float(settings.seed));
     surface_.set("uScale", settings.featureScale);

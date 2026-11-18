@@ -14,14 +14,12 @@ Version **1.2.0** adds a procedural Planet Workshop, five interactive challenges
 
 ## Project team
 
-Solar System Explorer was developed as a Computer Graphics Fundamentals project through the active contributions of four team members:
+The Computer Graphics Fundamentals project lists four team members.
 
 - **Abai Erik**
 - **Ulnaz Seitzhan**
 - **Nurbolat Zhumadulla**
 - **Nurasyl Adildabek**
-
-Together, the team invested time, effort, and collaboration in bringing this interactive Solar System to life.
 
 ## About the project
 
@@ -93,7 +91,7 @@ Workshop tools are grouped into **Shape**, **Surface** and **Air** tabs. **View*
 
 ### Save and load experiments
 
-**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, challenge progress, and the rendering-technique choices (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). New files use `SSELAB 3`; version 1 and 2 files still open and keep the default techniques. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
+**Save...** and **Load...** open native Windows dialogs for `.sselab` files. An experiment stores all eight orbits, simulation day/speed/pause, the selected planet, graphics settings, active laboratory, eclipse settings, procedural planet settings, challenge progress, and the rendering-technique choices (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). New files use `SSELAB 4`. Version 4 stores Workshop light angles, asteroid visibility and main-scene quality. Versions 1–3 open with defaults for fields their format omits. Bloom comparison and pipeline inspection retain their current session values when loading. Camera position and orientation are not saved; loading refocuses the saved selection. Invalid files display an error without partially replacing the current experiment.
 
 Start with the bundled [elliptical Mars](SolarSystemExplorer/examples/elliptical-mars.sselab), [solar eclipse](SolarSystemExplorer/examples/solar-eclipse.sselab), [lunar eclipse](SolarSystemExplorer/examples/lunar-eclipse.sselab), [ocean world](SolarSystemExplorer/examples/ocean-world.sselab), or [banded giant](SolarSystemExplorer/examples/banded-giant.sselab) experiments. Open them with **Load...** or pass their path to `--experiment`.
 
@@ -176,6 +174,12 @@ The project bundles its dependency sources, so no package manager or network acc
 Alternatively, run `BuildAndRun.bat` inside `SolarSystemExplorer/` to configure, build, test, and launch with the locally available Visual Studio toolchain. The graphics tests require a working OpenGL driver.
 
 ## Controls
+
+In Explore or Orbit Lab, **F6** toggles Bloom and **F7** shows a one-camera split with Bloom off on the left and on on the right. Under **View**, inspect the final composite, resolved scene, extracted highlights or blurred highlights. World normals preserve their RGB encoding throughout. **View → Project & team** opens the project card.
+
+**View → Asteroid belt** toggles 640 rocks between Mars and Jupiter. Their motion follows simulation time. **Low quality** uses single-sample rendering, quarter-resolution highlight buffers and four blur passes. **High quality** uses up to 4× MSAA, half-resolution highlights and ten passes. The quality controls apply to Explore and Orbit Lab.
+
+In **Workshop → Surface → Lighting**, change **Azimuth** and **Elevation** to move the light. Pause rotation to study the terminator. **Reset lighting** restores its original direction and the ambient, diffuse and specular multipliers.
 
 | Input | Action |
 | --- | --- |
@@ -265,6 +269,20 @@ After building with the `vs2022` preset, run these commands from `SolarSystemExp
 ```
 
 Captures default to 180 frames to allow the camera to settle. Use `--experiment` followed by the path to a saved `.sselab` file to reopen an experiment from the command line. Benchmark results depend on the GPU, driver, and window size; the [full usage guide](SolarSystemExplorer/README.md#testing-and-screenshots) explains the timing and capture options.
+
+### Presentation and capture
+
+| Command-line option | Effect |
+| --- | --- |
+| `--quality low` or `--quality high` | Set main-scene quality |
+| `--compare-bloom` | Show the split comparison |
+| `--pipeline final`, `scene`, `bright` or `bloom` | Select a composite, scene, extracted-highlight or blurred-highlight view |
+| `--no-asteroids` | Hide the instanced belt |
+| `--team-card` | Open the project and team card |
+| `--demo-tour` | Play the 60-second guided tour |
+| `--record-frames DIR` | Save rendered JPEG frames on a fixed 30 FPS timeline. Supply `--frames N` or `--demo-tour` |
+
+For portable GCC, see the [MinGW Makefiles build instructions](SolarSystemExplorer/README.md#portable-gcc-build).
 
 ## Educational scope
 

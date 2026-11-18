@@ -36,6 +36,7 @@ CMakeUserPresets.json
 
 # Logs and temporary files
 *.log
+!/SolarSystemExplorer/docs/submission/performance/*.log
 *.tmp
 *.bak
 *.swp

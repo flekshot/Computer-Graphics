@@ -8,6 +8,8 @@ Geometry makeWorkshopPlanet(const WorkshopSettings& settings, unsigned segments 
 // Equal-area deterministic sampling, returned as a fraction in [0, 1].
 float workshopOceanCoverage(const WorkshopSettings& settings);
 WorkshopSettings workshopPreset(int index);
+// Unit vector toward the light. Azimuth is measured from +Z toward +X, elevation toward +Y.
+glm::vec3 workshopLightDirection(const WorkshopSettings& settings);
 // Direction is normalized internally; zero/non-finite directions are invalid.
 float sampleWorkshopTerrain(const glm::vec3& unitDirection, const WorkshopSettings& settings);
 } // namespace sse

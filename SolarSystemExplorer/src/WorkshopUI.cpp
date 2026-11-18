@@ -130,11 +130,24 @@ void UIManager::workshopControls(LabState& lab, RenderSettings& settings) {
             }
             if (ImGui::CollapsingHeader("Lighting")) {
                 ImGui::BeginDisabled(settings.surfaceMode != SurfaceMode::Shaded);
+                constexpr float azimuthLimit = WorkshopSettings::maxLightAzimuthDegrees;
+                constexpr float elevationLimit = WorkshopSettings::maxLightElevationDegrees;
+                slider("Azimuth", "##workshop-light-azimuth", world.lightAzimuthDegrees,
+                       -azimuthLimit, azimuthLimit, "%.1f deg");
+                slider("Elevation", "##workshop-light-elevation", world.lightElevationDegrees,
+                       -elevationLimit, elevationLimit, "%.1f deg");
                 slider("Ambient", "##workshop-ambient", settings.ambient, 0, 3);
                 slider("Diffuse", "##workshop-diffuse", settings.diffuse, 0, 3);
                 slider("Specular", "##workshop-specular", settings.specular, 0, 3);
-                if (ImGui::Button("Reset lighting", {-1, 27}))
-                    settings.ambient = settings.diffuse = settings.specular = 1;
+                if (ImGui::Button("Reset lighting", {-1, 27})) {
+                    const WorkshopSettings defaultWorld;
+                    const RenderSettings defaultGraphics;
+                    world.lightAzimuthDegrees = defaultWorld.lightAzimuthDegrees;
+                    world.lightElevationDegrees = defaultWorld.lightElevationDegrees;
+                    settings.ambient = defaultGraphics.ambient;
+                    settings.diffuse = defaultGraphics.diffuse;
+                    settings.specular = defaultGraphics.specular;
+                }
                 ImGui::EndDisabled();
             }
             if (ImGui::CollapsingHeader("Rotation")) {

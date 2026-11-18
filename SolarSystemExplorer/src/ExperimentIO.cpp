@@ -46,6 +46,7 @@ void validateSettings(const SolarSystem& system, const RenderSettings& render, c
                 render.surfaceMode == SurfaceMode::Normals, "Unknown surface visualization mode.");
     require(render.shading == ShadingModel::BlinnPhong || render.shading == ShadingModel::Phong ||
                 render.shading == ShadingModel::Gouraud, "Unknown shading model.");
+    require(render.quality == 0 || render.quality == 1, "Graphics quality must be 0 (low) or 1 (high).");
     require(inRange(render.ambient, 0.0f, 3.0f) && inRange(render.diffuse, 0.0f, 3.0f) &&
                 inRange(render.specular, 0.0f, 3.0f), "Light multipliers must be between 0 and 3.");
     require(lab.view == LabView::Explore || lab.view == LabView::Orbit || lab.view == LabView::Eclipse ||
@@ -68,6 +69,12 @@ void validateSettings(const SolarSystem& system, const RenderSettings& render, c
     require(inRange(workshop.rotationSpeed, -45.0f, 45.0f), "Workshop rotation speed must be between -45 and 45 degrees/second.");
     require(workshop.gasBands >= 3 && workshop.gasBands <= 24, "Workshop gas bands must be between 3 and 24.");
     require(inRange(workshop.gasTurbulence, 0.0f, 1.0f), "Workshop gas turbulence must be between 0 and 1.");
+    constexpr float azimuthLimit = WorkshopSettings::maxLightAzimuthDegrees;
+    constexpr float elevationLimit = WorkshopSettings::maxLightElevationDegrees;
+    require(inRange(workshop.lightAzimuthDegrees, -azimuthLimit, azimuthLimit),
+            "Workshop light azimuth must be between -180 and 180 degrees.");
+    require(inRange(workshop.lightElevationDegrees, -elevationLimit, elevationLimit),
+            "Workshop light elevation must be between -90 and 90 degrees.");
     for (const auto* color : {&workshop.landColor, &workshop.waterColor, &workshop.atmosphereColor,
                               &workshop.gasColorA, &workshop.gasColorB})
         for (const float component : *color)
@@ -216,7 +223,7 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         std::ostringstream output;
         output.imbue(std::locale::classic());
         output << std::setprecision(std::numeric_limits<double>::max_digits10);
-        output << "SSELAB 3\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
+        output << "SSELAB 4\nsimulation " << system.days() << ' ' << system.speed() << ' ' << system.paused() << ' ' << selected;
         output << "\nrender " << render.orbits << ' ' << render.labels << ' ' << render.bloom << ' ' << render.exposure << ' '
                << static_cast<int>(render.surfaceMode) << ' ' << render.ambient << ' ' << render.diffuse << ' '
                << render.specular << ' ' << render.trails << ' ' << render.velocityVectors << ' ' << render.apsides;
@@ -246,6 +253,8 @@ bool saveExperiment(const std::filesystem::path& path, const SolarSystem& system
         output << "\ntechniques " << render.comet << ' ' << render.bezierControl << ' '
                << static_cast<int>(render.shading) << ' ' << render.lowPoly << ' ' << render.orthographic << ' '
                << render.outline;
+        output << "\nworkshop_light " << workshop.lightAzimuthDegrees << ' ' << workshop.lightElevationDegrees;
+        output << "\npresentation " << render.asteroids << ' ' << render.quality;
         output << "\norbits 8\n";
         for (size_t i = 0; i < system.planets().size(); ++i) {
             const auto& orbit = system.planets()[i].orbitParameters();
@@ -277,7 +286,7 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         Reader reader(contents);
         reader.expect("SSELAB");
         const auto version = reader.number<int>("version");
-        require(version >= 1 && version <= 3, "Unsupported experiment version; expected SSELAB 1, 2 or 3.");
+        require(version >= 1 && version <= 4, "Unsupported experiment version; expected SSELAB 1 through 4.");
         SolarSystem stagedSystem;
         RenderSettings stagedRender;
         LabState stagedLab;
@@ -359,6 +368,14 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
             stagedRender.orthographic = reader.boolean("orthographic projection");
             stagedRender.outline = reader.boolean("stencil outline");
         }
+        if (version >= 4) {
+            reader.expect("workshop_light");
+            stagedLab.workshop.lightAzimuthDegrees = reader.number<float>("workshop light azimuth");
+            stagedLab.workshop.lightElevationDegrees = reader.number<float>("workshop light elevation");
+            reader.expect("presentation");
+            stagedRender.asteroids = reader.boolean("asteroids");
+            stagedRender.quality = reader.number<int>("graphics quality");
+        }
         validateSettings(stagedSystem, stagedRender, stagedLab, stagedSelected);
         reader.expect("orbits");
         require(reader.number<int>("planet count") == 8, "Experiments must contain exactly eight planets.");
@@ -374,6 +391,8 @@ bool loadExperiment(const std::filesystem::path& path, SolarSystem& system,
         reader.expect("end");
         reader.finish();
         system = std::move(stagedSystem);
+        stagedRender.bloomCompare = render.bloomCompare;
+        stagedRender.pipelineStage = render.pipelineStage;
         render = stagedRender;
         lab = stagedLab;
         selected = stagedSelected;

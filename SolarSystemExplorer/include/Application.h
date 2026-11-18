@@ -14,11 +14,13 @@ struct Options {
     std::optional<SurfaceMode> surfaceMode;
     std::optional<ShadingModel> shading;
     bool orthographic = false, lowPoly = false, bezierControl = false, noComet = false;
+    bool compareBloom = false, noAsteroids = false, teamCard = false, demoTour = false;
+    std::optional<int> quality, pipelineStage;
     std::optional<bool> lunar, observer;
     std::optional<float> eclipsePhase, eclipseInclination;
     std::optional<WorkshopKind> workshopKind;
     std::optional<uint32_t> seed;
-    std::filesystem::path root, capture, experiment;
+    std::filesystem::path root, capture, experiment, recordFrames;
 };
 class Application {
   public:

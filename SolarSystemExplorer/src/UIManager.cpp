@@ -269,7 +269,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     animatedHeading("Solar System Explorer");
     ImGui::PopFont();
     ImGui::SetCursorPos({69, 39});
-    ImGui::TextColored(muted, "MISSION CONTROL  /  PLANETARY OBSERVATORY");
+    ImGui::TextColored(muted, "TOPIC 2  /  SOLAR SYSTEM");
     ImGui::SetCursorPos({size.x - 397, 18});
     const bool running = lab.view == LabView::Eclipse ? lab.eclipse.animate :
                          lab.view == LabView::Workshop ? lab.workshop.animate : !system.paused();
@@ -288,6 +288,14 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::SameLine(0, 16);
     if (softButton("H  Help", {76, 28}, motion_))
         help_ = !help_;
+    ImGui::SetCursorPos({size.x - 397, 43});
+    if (lab.view == LabView::Explore || lab.view == LabView::Orbit) {
+        const char* state = settings.surfaceMode == SurfaceMode::Normals ? "bypassed for normals" :
+                            settings.pipelineStage != 0 ? "pipeline inspector" :
+                            settings.bloomCompare ? "A/B comparison" : settings.bloom ? "ON" : "OFF";
+        ImGui::TextColored(cyan, "Bloom: %s  [F6]", state);
+    } else
+        ImGui::TextColored(muted, lab.view == LabView::Workshop ? "Workshop / adjustable light" : "Eclipse / sunlight visibility");
     const auto topPosition = ImGui::GetWindowPos();
     const float indicatorX = topPosition.x + 20 + navigationPosition_;
     draw->AddRectFilled({indicatorX + 18, topPosition.y + 96}, {indicatorX + 102, topPosition.y + 99},
@@ -329,6 +337,24 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         }
         if (activeScale_ + .01f < requestedScale_)
             ImGui::TextWrapped("Scale fits the current window. Enlarge the window for larger controls.");
+        ImGui::Separator();
+        if (ImGui::MenuItem("Project & team")) project_ = true;
+        ImGui::Separator();
+        ImGui::TextDisabled("Explore / Orbit rendering");
+        ImGui::BeginDisabled(lab.view != LabView::Explore && lab.view != LabView::Orbit);
+        if (ImGui::MenuItem("Bloom", "F6", &settings.bloom)) {
+            settings.bloomCompare = false;
+            settings.pipelineStage = 0;
+        }
+        ImGui::BeginDisabled(settings.surfaceMode == SurfaceMode::Normals);
+        if (ImGui::MenuItem("Compare Bloom", "F7", &settings.bloomCompare)) settings.pipelineStage = 0;
+        ImGui::SetNextItemWidth(-1);
+        ImGui::Combo("##pipeline-view", &settings.pipelineStage, "Final composite\0Scene without Bloom\0Extracted highlights\0Blurred highlights\0");
+        ImGui::EndDisabled();
+        ImGui::SetNextItemWidth(-1);
+        ImGui::Combo("##render-quality", &settings.quality, "Low quality\0High quality\0");
+        ImGui::MenuItem("Asteroid belt", nullptr, &settings.asteroids);
+        ImGui::EndDisabled();
         ImGui::EndPopup();
     }
     ImGui::SameLine(size.x - 392);
@@ -534,7 +560,10 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     ImGui::SameLine(0, 12);
     ImGui::Checkbox("Labels", &settings.labels);
     ImGui::SameLine(0, 12);
-    ImGui::Checkbox("Bloom", &settings.bloom);
+    if (ImGui::Checkbox("Bloom", &settings.bloom)) {
+        settings.bloomCompare = false;
+        settings.pipelineStage = 0;
+    }
     ImGui::SameLine(0, 18);
     char dayLabel[48];
     std::snprintf(dayLabel, sizeof(dayLabel), "Day %07.1f", system.days());
@@ -570,6 +599,7 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
             dl->AddText({sceneLeft, 169}, IM_COL32(156, 175, 200, 230), sceneHint);
     }
     helpWindow();
+    projectWindow();
     labMessage();
     return actions;
 }
@@ -609,6 +639,8 @@ void UIManager::helpWindow() {
                                          {"O", "Stencil outline around the selected planet"},
                                          {"C", "Show / hide the Bezier comet"},
                                          {"B", "Show the comet's Bezier control polygon"},
+                                         {"F6", "Toggle Bloom in Explore / Orbit"},
+                                         {"F7", "Compare Bloom off / on in Explore / Orbit"},
                                          {"H", "Toggle this help"},
                                          {"F10", "Hide / restore tools"},
                                          {"Escape", "Exit"}};
@@ -631,6 +663,44 @@ void UIManager::helpWindow() {
             help_ = false;
     }
     ImGui::End();
+}
+void UIManager::projectWindow() {
+    if (!project_) return;
+    const auto size = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowPos({size.x * .5f, size.y * .5f}, ImGuiCond_Appearing, {.5f, .5f});
+    ImGui::SetNextWindowSize({440, 0});
+    ImGui::SetNextWindowSizeConstraints({0, 0}, {size.x - 32, size.y - 32});
+    if (ImGui::Begin("Project & team", &project_, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !ImGui::IsAnyItemActive()) project_ = false;
+        ImGui::TextColored(cyan, "TOPIC 2 / SOLAR SYSTEM");
+        ImGui::TextWrapped("Solar System Explorer\nAstana IT University\nComputer Graphics Fundamentals / 2026-2027");
+        rule();
+        for (const auto* name : {"Abai Erik", "Nurbolat Zhumadulla", "Nurasyl Adildabek", "Ulnaz Seitzhan"})
+            ImGui::BulletText("%s", name);
+        rule();
+        ImGui::TextWrapped("Custom C++17 / OpenGL 3.3 rendering. Explore worlds, compare graphics techniques and complete five laboratory challenges.");
+        if (ImGui::Button("Return to the scene", {-1, 30})) project_ = false;
+    }
+    ImGui::End();
+}
+void UIManager::inspectionOverlay(const RenderSettings& settings, LabView view) const {
+    if ((view != LabView::Explore && view != LabView::Orbit) || settings.surfaceMode == SurfaceMode::Normals)
+        return;
+    auto* dl = ImGui::GetForegroundDrawList();
+    const auto size = ImGui::GetIO().DisplaySize;
+    auto badge = [&](const char* label, float x) {
+        const auto text = ImGui::CalcTextSize(label);
+        const ImVec2 pos(x - text.x * .5f, 212);
+        dl->AddRectFilled({pos.x - 9, pos.y - 6}, {pos.x + text.x + 9, pos.y + text.y + 6}, IM_COL32(6, 10, 17, 224), 3);
+        dl->AddText(pos, IM_COL32(239, 244, 250, 255), label);
+    };
+    if (settings.pipelineStage > 0) {
+        const char* stages[] = {"Final composite", "1 / HDR scene without Bloom", "2 / Extracted highlights", "3 / Blurred highlights"};
+        badge(stages[std::clamp(settings.pipelineStage, 0, 3)], size.x * .5f);
+    } else if (settings.bloomCompare) {
+        badge("BLOOM OFF", size.x * .5f - 80);
+        badge("BLOOM ON", size.x * .5f + 80);
+    }
 }
 void UIManager::labels(const SolarSystem& system, const Camera& camera, int selected, bool comet) const {
     const auto size = ImGui::GetIO().DisplaySize;

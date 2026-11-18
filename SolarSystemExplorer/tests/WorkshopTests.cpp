@@ -23,6 +23,35 @@ template <class Action> void rejects(Action action, const char* message) {
 bool finite(const glm::vec3& v) {
     return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
+void testLightDirection() {
+    sse::WorkshopSettings settings;
+    const auto original = glm::normalize(glm::vec3(-3.5f, 4.3f, 6.8f));
+    check(glm::length(sse::workshopLightDirection(settings) - original) < .00001f,
+          "Default lighting must preserve the original direction");
+    settings.lightElevationDegrees = 0;
+    for (const float azimuth : {-180.0f, -90.0f, 0.0f, 90.0f, 180.0f}) {
+        settings.lightAzimuthDegrees = azimuth;
+        const auto direction = sse::workshopLightDirection(settings);
+        check(finite(direction) && near(glm::length(direction), 1) && near(direction.y, 0),
+              "Horizon lighting must be finite and unit length");
+    }
+    check(glm::length(sse::workshopLightDirection(settings) - glm::vec3(0, 0, -1)) < .00001f,
+          "An azimuth of 180 degrees must point along negative Z");
+    settings.lightAzimuthDegrees = 90;
+    check(glm::length(sse::workshopLightDirection(settings) - glm::vec3(1, 0, 0)) < .00001f,
+          "An azimuth of 90 degrees must point along positive X");
+    for (const float elevation : {-90.0f, 90.0f}) {
+        settings.lightElevationDegrees = elevation;
+        const auto pole = glm::vec3(0, elevation / 90, 0);
+        check(glm::length(sse::workshopLightDirection(settings) - pole) < .00001f,
+              "Extreme elevations must point to the poles");
+    }
+    settings.lightElevationDegrees = std::numeric_limits<float>::quiet_NaN();
+    rejects([&] { sse::workshopLightDirection(settings); }, "Non-finite light elevation must be rejected");
+    settings.lightElevationDegrees = 0;
+    settings.lightAzimuthDegrees = 181;
+    rejects([&] { sse::workshopLightDirection(settings); }, "Out-of-range light azimuth must be rejected");
+}
 void testTerrain() {
     sse::WorkshopSettings settings;
     const glm::vec3 direction = glm::normalize(glm::vec3(1, 2, 3));
@@ -202,7 +231,7 @@ void testBounds() {
 }
 int main() {
     try {
-        testTerrain(); testGeometry(); testOceanAndPresets(); testBounds();
+        testTerrain(); testGeometry(); testOceanAndPresets(); testBounds(); testLightDirection();
         std::cout << "PASS: " << checks << " workshop assertions (terrain, geometry, oceans, presets, bounds)\n";
         return 0;
     } catch (const std::exception& error) {

@@ -1,5 +1,26 @@
 # Verification report
 
+## Final assignment update - 2026-11-18
+
+The current source was built in Release with portable w64devkit 2.11.0 / GCC 16.2.0, CMake and MinGW Makefiles. The previous Visual Studio installation was no longer present. The toolchain archive was downloaded from its official GitHub release, its SHA-256 matched the release metadata, and Windows tar extracted it without running its self-extractor. Tools remain in ignored build output; no global compiler installation is required for the delivered executable.
+
+**18/18 CTest checks passed**, including the new guided-tour capture regression, in 19.15 seconds. New checks cover F6 Bloom off/on, actual one-camera split output against two full-frame references, highlight/blur stages, both render quality levels, asteroid visibility/motion, Workshop light changes and byte-identical normal colors, SSELAB 4 round-trip/invalid-input atomicity and version 1-3 defaults. An independent final review found no remaining Critical or Important issues after the combined demo/capture default-duration defect was fixed. Tests include full 1,800-frame tour execution when a final screenshot is also requested.
+
+Four visible-window measurements used the default Explore scene and UI at 1280x720, 1,800 frames each, VSync disabled, deterministic 1/60-second simulation steps. Hardware: NVIDIA GeForce RTX 4050 Laptop GPU; OpenGL 3.3.0 NVIDIA 610.47. Resource loading is outside the frame-loop duration and the final GPU completion is included. These are short throughput samples (0.66-0.78 seconds), not a sustained performance or cross-machine certification. Repeat `tools/benchmark.ps1` on the actual lab PC.
+
+| Main-scene quality | Bloom | Average FPS | Frame-loop seconds | GL errors |
+| --- | --- | ---: | ---: | ---: |
+| High | On | 2295.40 | 0.784178 | 0 |
+| High | Off | 2504.44 | 0.718722 | 0 |
+| Low | On | 2426.25 | 0.741887 | 0 |
+| Low | Off | 2709.64 | 0.664294 | 0 |
+
+The original measurement CSV and logs are in `submission/performance/`; only the workstation-specific asset path in copied logs is redacted. Low uses one sample, quarter-resolution highlights and four blur passes; High uses up to four samples, half-resolution highlights and ten passes. The quality switch applies to Explore/Orbit, while laboratories retain their existing multisample targets.
+
+The actual application generated 1,800 JPEG frames at 1280x720 using a fixed 30 FPS timeline. The recorded tour performs a real Workshop mission check; it is not a slideshow. Its H.264 MP4 is exactly 60 seconds, fully decoded without errors, and representative frames were inspected for Bloom comparison, light changes, completion status and the team card. Recording took 35.0798 wall-clock seconds with zero GL errors; recording throughput is not the rendering benchmark. Final source and portable paths are recorded with the submission materials.
+
+The PDF contains real equations, a pipeline diagram, asset references and measured results. Group, factual individual contributions and the accessible hosted video URL remain explicitly pending user information/account access; the supplied assignment omits its referenced Section 6. No claim of complete submission approval or performance on an untested lab PC is made.
+
 ## Review fixes and visual polish - 2026-11-10
 
 The reviewed Release source passes **13/13 CTest tests**. The final regression set includes the following additions:

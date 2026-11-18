@@ -19,6 +19,8 @@ class Renderer {
     int fallbackCount() const { return fallbackCount_; }
 
   private:
+    void allocateTargets();
+    void initializeAsteroids();
     void fullscreen() const;
     void atmosphere(const glm::mat4& model, const glm::mat4& vp, const glm::vec3& eye, glm::vec3 color,
                     float strength, bool sun, const Mesh* mesh = nullptr);
@@ -36,7 +38,11 @@ class Renderer {
         float size;
     };
     Shader planet_, sun_, orbit_, ring_, atmosphere_, sky_, star_, blur_, composite_, debugSurface_,
-        debugLines_, cometTail_;
+        debugLines_, cometTail_, asteroid_;
+    GLObject asteroidVao_{GLKind::VertexArray}, asteroidVertices_{GLKind::Buffer},
+        asteroidIndices_{GLKind::Buffer}, asteroidInstances_{GLKind::Buffer};
+    GLsizei asteroidIndexCount_ = 0;
+    int quality_ = 1;
     Mesh sphere_, lowSphere_, annulus_, orbitMesh_, stars_;
     std::vector<Texture> surfaces_;
     Texture sunMap_, moonMap_, ringMap_, nightMap_, cloudMap_, skyMap_;

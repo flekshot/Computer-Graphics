@@ -10,14 +10,12 @@ Version **1.2.0** adds **Planet Workshop**, five interactive challenges, and a r
 
 ## Project team
 
-Solar System Explorer was developed as a Computer Graphics Fundamentals project through the active contributions of four team members:
+The Computer Graphics Fundamentals project lists four team members.
 
 - **Abai Erik**
 - **Ulnaz Seitzhan**
 - **Nurbolat Zhumadulla**
 - **Nurasyl Adildabek**
-
-Together, the team invested time, effort, and collaboration in bringing this interactive Solar System to life.
 
 ## Start here
 
@@ -66,6 +64,20 @@ cmake --install build --config Release --prefix portable
 ```
 
 Resources are copied next to the executable by the build. Shader edits require rebuilding that target to update the copy, or running with `--assets .` from this source directory. The executable resolves its own directory first, so it can be launched from another working directory. Unicode Windows paths are supported.
+
+### Portable GCC build
+
+Extract the x64 toolchain so that `build/tools/w64devkit/bin` contains `gcc.exe`, `g++.exe` and `mingw32-make.exe`. Obtain it from the [official w64devkit releases](https://github.com/skeeto/w64devkit/releases).
+
+```powershell
+$toolBin = (Resolve-Path '.\build\tools\w64devkit\bin').Path
+$env:Path = "$toolBin;$env:Path"
+cmake -S . -B build/gcc-release -G "MinGW Makefiles" `
+  "-DCMAKE_C_COMPILER=$toolBin/gcc.exe" "-DCMAKE_CXX_COMPILER=$toolBin/g++.exe" `
+  "-DCMAKE_MAKE_PROGRAM=$toolBin/mingw32-make.exe" -DCMAKE_BUILD_TYPE=Release
+cmake --build build/gcc-release --parallel
+.\build\gcc-release\SolarSystemExplorer.exe
+```
 
 ## Laboratory guide
 
@@ -137,7 +149,7 @@ The scene uses a coherent illustrative scale to make the bodies and shadows visi
 
 ### Save and reopen an experiment
 
-Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the versioned `SSELAB 3` text format (version 1 and 2 files still load and keep the default rendering techniques). Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; eclipse kind, alignment, animation, cones, and observer setting; procedural world settings and palette; challenge progress; and the rendering techniques (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline).
+Use **Save...** or **Load...** in the top bar to open a native Windows file dialog. Files use the `.sselab` extension and the `SSELAB 4` format. Version 4 stores Workshop light angles, asteroid visibility and main-scene quality. Versions 1–3 open with defaults for fields their format omits. Bloom comparison and pipeline inspection retain their current session values when loading. Saved state includes all eight orbits; simulation day, speed, and pause; selected planet; graphics and overlay settings; active laboratory; eclipse kind, alignment, animation, cones, and observer setting; procedural world settings and palette; challenge progress; and the rendering techniques (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline).
 
 Camera poses and the session-only Motion preference are not saved. Loading refocuses the saved planet selection, or returns to overview if none was selected. A malformed or unsupported file is rejected with a useful error, and the live state is replaced only after the complete file validates. You can also launch with `--experiment` followed by a saved file path.
 
@@ -148,6 +160,12 @@ Five starting points are included: [elliptical Mars](examples/elliptical-mars.ss
 ```
 
 ## Controls
+
+In Explore or Orbit Lab, **F6** toggles Bloom and **F7** shows a one-camera split with Bloom off on the left and on on the right. Under **View**, inspect the final composite, resolved scene, extracted highlights or blurred highlights. World normals preserve their RGB encoding throughout. **View → Project & team** opens the project card.
+
+**View → Asteroid belt** toggles 640 rocks between Mars and Jupiter. Their motion follows simulation time. **Low quality** uses single-sample rendering, quarter-resolution highlight buffers and four blur passes. **High quality** uses up to 4× MSAA, half-resolution highlights and ten passes. The quality controls apply to Explore and Orbit Lab.
+
+In **Workshop → Surface → Lighting**, change **Azimuth** and **Elevation** to move the light. Pause rotation to study the terminator. **Reset lighting** restores its original direction and the ambient, diffuse and specular multipliers.
 
 | Input | Action |
 |---|---|
@@ -247,9 +265,27 @@ These paths assume the explicit `-B build` configuration above. For the VS 2022 
 
 Laboratory CLI options are `--lab explore|orbit|eclipse|workshop`, `--kind rocky|gas`, `--seed N`, `--render-mode shaded|wireframe|normals`, `--experiment FILE`, `--eclipse solar|lunar`, `--eclipse-phase N` (−180 to 180), `--eclipse-tilt N` (−30 to 30), and `--observer`. `--eclipse` opens Eclipse Lab; `--kind` opens Workshop. Explicit lab/render/eclipse/kind/seed options override the corresponding settings loaded from an experiment; `--paused` also stops eclipse and workshop animation.
 
-`--capture` defaults to 180 frames so focus can settle. `--frames` uses deterministic 1/60-second simulation steps. `--hidden` creates a hidden GLFW window but still requires a real graphics driver; it is not a software/headless renderer. `--benchmark` disables VSync; its reported average includes CPU submission, rendering, presentation and final GPU completion, and is not a guarantee for other hardware. Interactive mode enables VSync.
+`--capture` defaults to 180 frames so focus can settle. Bounded runs use deterministic 1/60-second simulation steps. Tours and frame recordings use 1/30-second steps. A hidden GLFW window still needs an OpenGL driver. Benchmark mode disables VSync and measures CPU submission, rendering, presentation and final GPU completion. Interactive mode enables VSync.
 
 Use `--help` for all options. `SSE_BUILD_TESTS=OFF` omits both smoke-test entry points and the test executables for a smaller production build. The normal app and all user controls remain available.
+
+### Presentation and capture
+
+| Command-line option | Effect |
+| --- | --- |
+| `--quality low` or `--quality high` | Set main-scene quality |
+| `--compare-bloom` | Show the split comparison |
+| `--pipeline final`, `scene`, `bright` or `bloom` | Select a composite, scene, extracted-highlight or blurred-highlight view |
+| `--no-asteroids` | Hide the instanced belt |
+| `--team-card` | Open the project and team card |
+| `--demo-tour` | Play the 60-second guided tour |
+| `--record-frames DIR` | Save rendered JPEG frames on a fixed 30 FPS timeline. Supply `--frames N` or `--demo-tour` |
+
+Run the benchmark matrix from the project directory. The script measures 1,800 frames per configuration at 1280×720 with the default Explore UI, VSync disabled and a visible window. It records renderer and driver strings, elapsed seconds, average FPS and OpenGL errors in a timestamped directory with a CSV and four console logs. Select a hidden-window run with `-Hidden`. The CSV records the window mode.
+
+```powershell
+.\tools\benchmark.ps1 -ExePath .\build\gcc-release\SolarSystemExplorer.exe -OutputDirectory .\build\measurements
+```
 
 ## Troubleshooting
 

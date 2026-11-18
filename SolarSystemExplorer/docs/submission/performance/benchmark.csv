@@ -1,0 +1,5 @@
+﻿"Quality","Bloom","Width","Height","Window","Scene","Frames","Seconds","AverageFPS","GLErrors","Renderer","OpenGL","Arguments"
+"high","on","1280","720","Visible","Explore overview, default UI","1800","0.784178","2295.4","0","NVIDIA GeForce RTX 4050 Laptop GPU/PCIe/SSE2","3.3.0 NVIDIA 610.47","--width 1280 --height 720 --benchmark --frames 1800 --quality high"
+"high","off","1280","720","Visible","Explore overview, default UI","1800","0.718722","2504.44","0","NVIDIA GeForce RTX 4050 Laptop GPU/PCIe/SSE2","3.3.0 NVIDIA 610.47","--width 1280 --height 720 --benchmark --frames 1800 --quality high --no-bloom"
+"low","on","1280","720","Visible","Explore overview, default UI","1800","0.741887","2426.25","0","NVIDIA GeForce RTX 4050 Laptop GPU/PCIe/SSE2","3.3.0 NVIDIA 610.47","--width 1280 --height 720 --benchmark --frames 1800 --quality low"
+"low","off","1280","720","Visible","Explore overview, default UI","1800","0.664294","2709.64","0","NVIDIA GeForce RTX 4050 Laptop GPU/PCIe/SSE2","3.3.0 NVIDIA 610.47","--width 1280 --height 720 --benchmark --frames 1800 --quality low --no-bloom"

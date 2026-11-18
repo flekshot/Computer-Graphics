@@ -32,6 +32,13 @@ void help() {
                  "  --no-ui --no-bloom   Disable UI or bloom\n"
                  "  --hidden            Create a hidden window for automated checks\n"
                  "  --benchmark         Disable VSync, default 600 frames\n"
+                 "  --quality LEVEL     low (1 sample) or high (up to 4 samples), main scene\n"
+                 "  --compare-bloom     Show Bloom off/on with one camera\n"
+                 "  --pipeline STAGE    final, scene, bright, or bloom\n"
+                 "  --no-asteroids      Hide the instanced asteroid belt\n"
+                 "  --team-card         Show the project and team information\n"
+                 "  --demo-tour         Run the 60-second guided tour at fixed 30 FPS steps\n"
+                 "  --record-frames DIR Save each rendered frame as JPEG (30 FPS timeline)\n"
                  "  --fallback-textures  Exercise procedural missing-texture recovery\n"
                  "  --assets PATH       Resource root containing shaders/ and assets/\n"
                  "  --lab MODE          explore, orbit, eclipse, or workshop\n"
@@ -77,6 +84,19 @@ int explorerMain(int argc, char** argv) {
                 options.height = integer(value(), 640, 4320);
             else if (flag == "--capture")
                 options.capture = std::filesystem::u8path(value());
+            else if (flag == "--record-frames")
+                options.recordFrames = std::filesystem::u8path(value());
+            else if (flag == "--quality") {
+                const auto level = value();
+                if (level != "low" && level != "high") throw std::invalid_argument("--quality must be low or high");
+                options.quality = level == "high" ? 1 : 0;
+            } else if (flag == "--pipeline") {
+                const auto stage = value();
+                const std::vector<std::string> stages{"final", "scene", "bright", "bloom"};
+                const auto found = std::find(stages.begin(), stages.end(), stage);
+                if (found == stages.end()) throw std::invalid_argument("--pipeline must be final, scene, bright, or bloom");
+                options.pipelineStage = static_cast<int>(found - stages.begin());
+            }
             else if (flag == "--assets")
                 options.root = std::filesystem::u8path(value());
             else if (flag == "--experiment")
@@ -176,6 +196,10 @@ int explorerMain(int argc, char** argv) {
                 options.fallback = true;
             else if (flag == "--benchmark")
                 options.benchmark = true;
+            else if (flag == "--compare-bloom") options.compareBloom = true;
+            else if (flag == "--no-asteroids") options.noAsteroids = true;
+            else if (flag == "--team-card") options.teamCard = true;
+            else if (flag == "--demo-tour") options.demoTour = true;
 #ifdef SSE_WITH_TESTS
             else if (flag == "--smoke-test")
                 options.smoke = true;
@@ -195,10 +219,17 @@ int explorerMain(int argc, char** argv) {
             options.frames = 240;
         if (int(options.smoke) + int(options.labSmoke) + int(options.workshopSmoke) > 1)
             throw std::invalid_argument("Choose only one smoke scenario");
+        if (options.frames == 0 && options.demoTour) options.frames = 1800;
         if (options.frames == 0 && !options.capture.empty())
             options.frames = 180;
         if (options.frames == 0 && options.benchmark)
             options.frames = 600;
+        if (options.demoTour && (options.smoke || options.labSmoke || options.workshopSmoke || options.benchmark))
+            throw std::invalid_argument("--demo-tour cannot be combined with smoke tests or benchmark");
+        if (!options.recordFrames.empty() && options.frames == 0)
+            throw std::invalid_argument("--record-frames requires --frames or --demo-tour");
+        if (!options.recordFrames.empty() && options.benchmark)
+            throw std::invalid_argument("Frame recording would invalidate benchmark timing");
         if (options.root.empty())
             options.root = sse::assetRoot(argv[0]);
         sse::Application app(std::move(options));

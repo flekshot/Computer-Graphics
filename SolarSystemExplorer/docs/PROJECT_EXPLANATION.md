@@ -176,7 +176,19 @@ Saturn's ring fragment shader tests a ray toward the Sun against Saturn's sphere
 
 Opaque bodies write to the depth buffer. Depth testing hides back surfaces and resolves planet overlaps. Transparent surfaces are drawn afterward with depth testing still enabled but depth writing disabled. Rings disable face culling so they can be viewed from above or below. Standard alpha blending is used for rings and clouds; additive blending is used for atmospheric rims and stars.
 
-The scene renders into a floating-point HDR multisample framebuffer. Up to four samples per pixel smooth sphere edges and orbit lines. A blit resolves it into a single-sample texture. Bright pixels are extracted and blurred in alternating horizontal and vertical passes using two half-resolution framebuffers. The final shader adds bloom, applies exposure and an ACES-style tone curve, then converts linear color for display. The ImGui interface is drawn after this stage and remains crisp.
+The main scene renders into a floating-point HDR framebuffer. High quality uses up to four MSAA samples per pixel and resolves by blit into a single-sample texture. Low quality uses one sample per pixel and blits the HDR color into the same single-sample scene texture. The main scene retains its full resolution in both modes.
+
+The first fullscreen pass samples linear HDR color `C` and writes `max(C - 1, 0)` per channel into the smaller Bloom buffer. `blur.frag` then applies a five-sample weighted filter using linear interpolation at fractional texel offsets from Daniel Rákos's [Gaussian blur reference](https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/). `I` is the current input and `a` is the one-texel vector along the pass axis:
+
+```text
+B(p) = 0.227027 I(p)
+     + 0.316216 [I(p + 1.384615 a) + I(p - 1.384615 a)]
+     + 0.070270 [I(p + 3.230769 a) + I(p - 3.230769 a)]
+```
+
+High quality uses half resolution in each dimension and ten alternating blur passes. Low uses quarter resolution and four passes. Two ping-pong textures allow each pass to sample the preceding result while writing to a different texture. The composite adds `0.75 × B` before applying exposure, Narkowicz's ACES-style tone curve, a 1/2.2 display power, and a light vignette. ImGui draws after the composite. The World normals mode skips the artistic transforms and displays direct normal RGB.
+
+In Explore or Orbit Lab, **F6** toggles Bloom and returns to the final view. **F7** enables a split of one frame, with the left without Bloom and the right with Bloom. Only the final compositing expression differs across the split. The pipeline inspector can show the scene without Bloom, the extracted values, and the blurred highlights. Intermediate HDR images pass through the same display transform for inspection. The asteroid belt uses one instanced indexed draw for 640 deterministic rocks with per-instance attributes.
 
 ## 10. Camera behavior
 
@@ -223,13 +235,19 @@ Total alignment uses phase 0° in both modes. Partial alignment uses 8° for sol
 
 ## 14. Experiment persistence
 
-Native Windows Save/Load dialogs use `.sselab` files. `ExperimentIO` writes a versioned `SSELAB 3` text record containing all eight orbital configurations, simulation day/speed/pause, selected planet, graphics/overlay settings, active laboratory, eclipse and workshop settings, challenge progress, and a `techniques` record (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). Version 1 and 2 files still load; their missing records keep the defaults. Numeric serialization uses a fixed locale and sufficient precision for roundtrips.
+Native Windows Save/Load dialogs use `.sselab` files. `ExperimentIO` writes a versioned `SSELAB 4` text record containing all eight orbital configurations, simulation day/speed/pause, selected planet, graphics/overlay settings, active laboratory, eclipse and workshop settings, challenge progress, and a `techniques` record (comet, Bézier control polygon, shading model, low-poly spheres, projection, stencil outline). Version 4 adds the Workshop light direction, asteroid visibility, and render quality. Versions 1–3 still load with defaults for fields their formats omit. Bloom comparison and pipeline inspection are session controls. Numeric serialization uses a fixed locale and sufficient precision for roundtrips.
 
 Loading parses into temporary model and settings objects. The parser checks the version, record order/counts, finite values, supported ranges, and orbital clearance before replacing live state. Invalid or truncated files report an error without partially modifying the experiment. Saving validates state and writes through a temporary file before replacing the destination.
 
 Camera pose is deliberately absent from the format. After loading, `Application` focuses the restored selection or returns to overview. The model and persistence tests do not need a graphics context; the laboratory smoke scenario additionally exercises save/load inside the application.
 
-## 15. Likely defense questions
+## 15. Workshop light and challenges
+
+Workshop's Surface tab exposes azimuth and elevation under **Lighting**. In world coordinates the unit light vector is `(cos(e) sin(a), sin(e), cos(e) cos(a))`, where `a` is azimuth and `e` is elevation in radians. The model converts the displayed degrees and validates the supported ranges. The same vector drives terrain and atmospheric lighting. **Reset lighting** restores the default direction and term multipliers. Changing light direction moves the terminator of a paused world. World normals bypasses lighting and encodes surface direction directly.
+
+The five challenges use predicates over the live experiment. **Read the normals** succeeds when Workshop is active, its world is paused, and World normals is selected. **Check challenge** validates these conditions and updates progress. Players can change settings and retry, reset challenge progress, or save and reload their state.
+
+## 16. Likely defense questions
 
 **Why use indexed geometry?** Reusing vertices reduces duplicated data and allows the GPU's post-transform cache to avoid repeated vertex work.
 
@@ -261,11 +279,11 @@ Camera pose is deliberately absent from the format. After loading, `Application`
 
 **Can you prove there are no memory leaks?** RAII and context-aware destruction reduce the risk, and the available checks are reported honestly. A short successful run is not a formal proof of zero leaks across all GPU drivers.
 
-## 16. Rendering techniques laboratory
+## 17. Rendering techniques laboratory
 
 These features were added to cover the course rubric items on shading models, projections, buffers and parametric curves. All of them are reachable from Orbit Lab's **Graphics** tab and from keyboard shortcuts in Explore.
 
-### 16.1 Gouraud, Phong and Blinn-Phong
+### 17.1 Gouraud, Phong and Blinn-Phong
 
 `planet.vert` and `planet.frag` share a `uShadingModel` uniform:
 
@@ -277,15 +295,15 @@ These features were added to cover the course rubric items on shading models, pr
 
 In Gouraud mode the vertex shader outputs `vNdl` and `vSpec`; the rasterizer interpolates those scalars and the fragment shader only multiplies them with the texture colour. A highlight that falls inside a large triangle is therefore lost or smeared. The **Low-poly spheres** option swaps the 128 × 64 sphere for a 16 × 8 one to make this visible. Phong uses a quarter of the Blinn exponent because the angle between `R` and `V` is roughly twice the angle between `N` and `H`; this keeps the highlight size comparable so that only its shape differs.
 
-### 16.2 Perspective and orthographic projection
+### 17.2 Perspective and orthographic projection
 
 `Camera::orthographicProjection` builds `glm::ortho` with a half-height of `distance * tan(fov / 2)`. At the focus distance this is exactly the height the perspective frustum shows, so both projections map the focus plane identically and switching does not change the selected planet's size. For the same reason a linear blend of the two matrices also preserves the focus plane, which the camera uses to animate the switch. In the orthographic matrix `w` is always 1, so there is no perspective divide and no foreshortening. The off-centre panel offset becomes a translation (`p[3][0]`) instead of a shear (`p[2][0]`). The sky and stars represent directions at infinity and always use the perspective matrix.
 
-### 16.3 Stencil-buffer outline
+### 17.3 Stencil-buffer outline
 
 The multisampled scene framebuffer uses a packed `GL_DEPTH24_STENCIL8` renderbuffer. While the selected planet is drawn, `glStencilFunc(GL_ALWAYS, 1)` with `GL_REPLACE` marks its visible pixels. Next, a copy scaled by about three pixels is drawn in a flat HDR colour with `glStencilFunc(GL_NOTEQUAL, 1)` and stencil writes disabled. Only the ring outside the original silhouette survives, and bloom turns it into a glow. The scale is computed from the projection (`2w / (P[1][1] * height)` world units per pixel), so the width stays constant in pixels for both projections.
 
-### 16.4 Bézier comet and De Casteljau's algorithm
+### 17.4 Bézier comet and De Casteljau's algorithm
 
 `deCasteljau` evaluates a Bézier curve of any degree by repeated linear interpolation:
 
@@ -304,7 +322,7 @@ The tails are point sprites with additive blending. The ion tail is a straight l
 
 `tests/BezierTests.cpp` checks that De Casteljau agrees with the Bernstein form and that endpoints are interpolated. It also tests C0 and C1 continuity at every joint, periodicity, monotonic motion and perihelion/aphelion speeds. `CoreTests` checks the projection invariants.
 
-### 16.5 Defense questions for these techniques
+### 17.5 Defense questions for these techniques
 
 **Why does Gouraud shading lose highlights?** Lighting is computed only at vertices. If a specular peak falls between vertices, the interpolation never reaches it.
 

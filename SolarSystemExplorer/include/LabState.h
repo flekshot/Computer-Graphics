@@ -9,6 +9,8 @@ enum class LabView { Explore = 0, Orbit = 1, Eclipse = 2, Workshop = 3 };
 enum class WorkshopKind { Rocky = 0, Gas = 1 };
 
 struct WorkshopSettings {
+    static constexpr float maxLightAzimuthDegrees = 180.0f;
+    static constexpr float maxLightElevationDegrees = 90.0f;
     WorkshopKind kind = WorkshopKind::Rocky;
     uint32_t seed = 42;
     float radius = 1.25f, relief = 0.12f, featureScale = 3.5f;
@@ -22,6 +24,8 @@ struct WorkshopSettings {
     std::array<float, 3> atmosphereColor{0.18f, 0.48f, 0.95f};
     std::array<float, 3> gasColorA{0.75f, 0.46f, 0.25f};
     std::array<float, 3> gasColorB{0.96f, 0.84f, 0.62f};
+    // Angles of the original light vector (-3.5, 4.3, 6.8).
+    float lightAzimuthDegrees = -27.235147f, lightElevationDegrees = 29.346769f;
 };
 
 struct MissionProgress {
@@ -40,6 +44,9 @@ struct RenderSettings {
     bool lowPoly = false;
     bool orthographic = false;
     bool outline = true; // Stencil-buffer silhouette around the selected planet.
+    bool bloomCompare = false, asteroids = true;
+    int pipelineStage = 0; // Session inspector: final, scene, highlights, blurred highlights.
+    int quality = 1; // 0 low, 1 high; independent of diagnostic low-poly meshes.
 };
 
 struct EclipseSettings {

@@ -249,6 +249,14 @@ void labSmokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& c
     if (frame == 216) click(80, 92, false);
     if (frame == 225 && lab.view != LabView::Explore)
         throw std::runtime_error("Lab smoke: Explore navigation did not restore the atlas");
+    if (frame == 226 || frame == 230)
+        ImGui::GetIO().AddKeyEvent(ImGuiKey_F6, true);
+    if (frame == 227 || frame == 231)
+        ImGui::GetIO().AddKeyEvent(ImGuiKey_F6, false);
+    if (frame == 228 && settings.bloom)
+        throw std::runtime_error("Lab smoke: F6 did not switch Bloom off");
+    if (frame == 232 && !settings.bloom)
+        throw std::runtime_error("Lab smoke: F6 did not restore Bloom");
     if (frame == 239)
         ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape, true);
 }

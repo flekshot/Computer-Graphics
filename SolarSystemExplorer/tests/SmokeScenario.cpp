@@ -103,10 +103,110 @@ void verifyLaboratoryState(const std::filesystem::path& root) {
             glActiveTexture(GL_TEXTURE3);
         }
     }
+    WorkshopSettings world;
+    world.animate = false;
+    world.lightElevationDegrees = 0;
+    graphics.exposure = 1;
+    const auto litImage = [&](float azimuth) {
+        world.lightAzimuthDegrees = azimuth;
+        workshop.render(world, graphics, camera, 320, 240);
+        std::vector<unsigned char> image(320 * 240 * 4);
+        glReadBuffer(GL_BACK);
+        glReadPixels(0, 0, 320, 240, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+        return image;
+    };
+    graphics.surfaceMode = SurfaceMode::Shaded;
+    const auto fromLeft = litImage(-90);
+    const auto fromRight = litImage(90);
+    size_t relitPixels = 0;
+    for (size_t i = 0; i < fromLeft.size(); i += 4)
+        if (std::abs(int(fromLeft[i]) - int(fromRight[i])) > 10)
+            ++relitPixels;
+    if (relitPixels < 100)
+        throw std::runtime_error("Smoke: opposite workshop light directions did not relight the planet");
+    graphics.surfaceMode = SurfaceMode::Normals;
+    const auto leftNormals = litImage(-90);
+    if (leftNormals != litImage(90))
+        throw std::runtime_error("Smoke: moving the workshop light changed world-normal RGB");
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GLuint(originalTexture));
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glEnable(GL_MULTISAMPLE);
+}
+
+void verifyMainPipeline(GLFWwindow* window, Renderer& renderer) {
+    int originalWidth, originalHeight;
+    glfwGetFramebufferSize(window, &originalWidth, &originalHeight);
+    SolarSystem system;
+    Camera camera;
+    RenderSettings settings;
+    for (const int quality : {0, 1}) {
+        const int width = quality == 0 ? 320 : 401;
+        const int height = quality == 0 ? 240 : 291;
+        renderer.resize(0, 0);
+        renderer.resize(width, height);
+        camera.setViewport(float(width), float(height), false);
+        const auto image = [&]() {
+            renderer.render(system, camera, settings, -1, 0);
+            std::vector<unsigned char> pixels(size_t(width) * height * 4);
+            glReadBuffer(GL_BACK);
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        settings.quality = quality;
+        settings.pipelineStage = 0;
+        settings.bloomCompare = false;
+        settings.bloom = false;
+        settings.asteroids = false;
+        const auto off = image();
+        settings.asteroids = true;
+        const auto belt = image();
+        if (belt == off)
+            throw std::runtime_error("Smoke: asteroid draw did not change the overview");
+        system.setDays(120);
+        const auto movedBelt = image();
+        settings.asteroids = false;
+        const auto movedOff = image();
+        size_t movedChannels = 0;
+        for (size_t i = 0; i < off.size(); ++i)
+            if (movedBelt[i] != movedOff[i] && belt[i] == off[i])
+                ++movedChannels;
+        if (movedChannels < 3)
+            throw std::runtime_error("Smoke: asteroid instances did not advance with simulation days");
+        system.setDays(0);
+        settings.asteroids = true;
+        settings.bloom = true;
+        const auto on = image();
+        settings.bloom = false;
+        settings.bloomCompare = true;
+        const auto split = image();
+        std::array<int, 2> changed{};
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (2*x+1 == width) continue; // Center of an odd viewport lies on the split.
+                const bool right = 2*x+1 > width;
+                const size_t i = (size_t(y)*width+x)*4;
+                for (size_t c = i; c < i+3; ++c) {
+                    if (split[c] != (right ? on[c] : belt[c]))
+                        throw std::runtime_error("Smoke: split bloom disagrees with full-frame references");
+                    if (belt[c] != on[c]) ++changed[right];
+                }
+            }
+        }
+        if (!changed[0] || !changed[1])
+            throw std::runtime_error("Smoke: bloom did not affect both halves of the Sun fixture");
+        settings.pipelineStage = 1;
+        if (image() != belt)
+            throw std::runtime_error("Smoke: scene pipeline stage differs from pre-bloom scene");
+        settings.pipelineStage = 2;
+        const auto extracted = image();
+        settings.pipelineStage = 3;
+        const auto blurred = image();
+        if (extracted == belt || blurred == extracted ||
+            std::none_of(extracted.begin(), extracted.end(), [](unsigned char x) { return x > 0 && x < 255; }))
+            throw std::runtime_error("Smoke: missing highlight extraction or separable blur");
+    }
+    renderer.resize(originalWidth, originalHeight);
 }
 
 void verifyNormalColors(GLFWwindow* window, Renderer& renderer) {
@@ -128,6 +228,8 @@ void verifyNormalColors(GLFWwindow* window, Renderer& renderer) {
     for (int variant = 0; variant < 4; ++variant) {
         settings.exposure = variant < 2 ? .2f : 3.0f;
         settings.bloom = (variant % 2) != 0;
+        settings.pipelineStage = variant;
+        settings.bloomCompare = variant > 0;
         renderer.render(fixture, camera, settings, -1, 0);
         std::array<unsigned char, 4> pixel{};
         glReadBuffer(GL_BACK);
@@ -182,6 +284,8 @@ void smokeFrame(int frame, GLFWwindow* window, SolarSystem& system, Camera& came
         throw std::runtime_error("Smoke: paused time advanced");
     if (frame == 20)
         verifyNormalColors(window, renderer);
+    if (frame == 22)
+        verifyMainPipeline(window, renderer);
     if (frame == 21) {
         const auto root = assetRoot("");
         verifyLaboratoryTarget(root);

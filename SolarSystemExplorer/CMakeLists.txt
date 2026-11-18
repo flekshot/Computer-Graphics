@@ -34,14 +34,18 @@ target_link_libraries(sse_core PUBLIC glm)
 add_executable(SolarSystemExplorer src/main.cpp src/Application.cpp src/Shader.cpp src/Mesh.cpp src/Texture.cpp
     src/Renderer.cpp src/UIManager.cpp src/LabUI.cpp src/EclipseRenderer.cpp src/ExperimentDialogs.cpp
     src/WorkshopRenderer.cpp src/WorkshopUI.cpp src/UIEffects.cpp src/AnimatedTexture.cpp src/HudUI.cpp
-    src/LaboratoryTarget.cpp)
-target_include_directories(SolarSystemExplorer PRIVATE include third_party/stb)
+    src/LaboratoryTarget.cpp src/DemoTour.cpp)
+target_include_directories(SolarSystemExplorer PRIVATE include)
+target_include_directories(SolarSystemExplorer SYSTEM PRIVATE third_party/stb)
 target_compile_definitions(SolarSystemExplorer PRIVATE
     GLFW_INCLUDE_NONE NOMINMAX WIN32_LEAN_AND_MEAN
     SSE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(SolarSystemExplorer PRIVATE glew glfw glm imgui sse_core)
 if(WIN32)
     target_link_libraries(SolarSystemExplorer PRIVATE comdlg32)
+endif()
+if(MINGW)
+    target_link_options(SolarSystemExplorer PRIVATE -municode)
 endif()
 if(MSVC)
     target_compile_options(SolarSystemExplorer PRIVATE /W4 /permissive- /utf-8)
@@ -54,7 +58,8 @@ add_custom_command(TARGET SolarSystemExplorer POST_BUILD
 set_property(TARGET SolarSystemExplorer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:SolarSystemExplorer>")
 install(TARGETS SolarSystemExplorer RUNTIME DESTINATION .)
 install(DIRECTORY shaders assets licenses DESTINATION .)
-install(DIRECTORY docs DESTINATION .)
+install(DIRECTORY docs DESTINATION . PATTERN "verification" EXCLUDE PATTERN "__pycache__" EXCLUDE)
+install(DIRECTORY tools DESTINATION .)
 install(DIRECTORY examples DESTINATION .)
 install(FILES README.md LICENSE THIRD_PARTY_NOTICES.md DESTINATION .)
 include(CTest)
@@ -85,6 +90,10 @@ if(SSE_BUILD_TESTS)
     add_test(NAME graphics_smoke COMMAND SolarSystemExplorer --smoke-test --hidden)
     add_test(NAME laboratory_smoke COMMAND SolarSystemExplorer --lab-smoke-test --hidden)
     add_test(NAME workshop_smoke COMMAND SolarSystemExplorer --workshop-smoke-test --hidden)
+    add_test(NAME guided_demo_capture COMMAND SolarSystemExplorer --hidden --width 1000 --height 640
+        --demo-tour --capture "${CMAKE_CURRENT_BINARY_DIR}/guided-demo-test.png")
+    set_tests_properties(guided_demo_capture PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE
+        PASS_REGULAR_EXPRESSION "Completed 1800 frames")
     add_test(NAME missing_textures COMMAND SolarSystemExplorer --frames 5 --hidden --fallback-textures)
     add_test(NAME no_bloom COMMAND SolarSystemExplorer --frames 5 --hidden --no-bloom)
     add_test(NAME rendering_techniques COMMAND SolarSystemExplorer --frames 90 --hidden --planet saturn

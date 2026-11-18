@@ -1,83 +1,69 @@
-# Demonstration script — approximately 5 minutes
+# Five minute defence and live demo
 
-Before presenting, build Release and run the tests. Check the presentation computer's OpenGL driver and rehearse Save/Load with a file location you can find easily. Use the default 1440×900 window if possible; smaller windows have scrollable side panels. Start from the portable folder with:
+Launch the Release executable from its portable folder. Use a 1440 × 900 window if the display permits. Start paused, with High quality, Shaded mode, and Bloom enabled. Rehearse the Sun framing and the Workshop challenge from a fresh session. Keep the backup video and its share link available.
+
+## 0:00 to 0:15 | Show Bloom immediately
+
+Start Explore, press **R** for overview, then scroll forward over empty space until the central Sun occupies about one quarter of the viewport height. Hold that view at the start and point to the glow outside the disk. Press **F6** to turn Bloom off, then press it again to restore the halo. Point to the on-screen Bloom state.
+
+> Solar System Explorer is our project for Topic 2, Solar System. The Sun writes color above display white into an HDR render target. Bloom spreads that light beyond the disk.
+
+## 0:15 to 1:10 | Show the passes
+
+Press **F7** to split the same camera view. The left half omits Bloom and the right half includes it. Point out the rim and nearby space. Press **F7** again, then use the pipeline selector in the **View** menu or Orbit Lab's **Graphics** tab. Choose **Scene without Bloom**, **Extracted highlights**, **Blurred highlights** and **Final composite** in succession.
+
+> The geometry is shaded into a floating-point target and the multisampled image is resolved. The post-process keeps values above 1 in each color channel, blurs the result along one axis per pass, and adds it back before tone mapping. The comparison holds camera, exposure, and geometry fixed.
+
+Return to the final image. Show the High and Low quality choices. Open **Project & team** from the **View** menu to identify the team and the on-screen help.
+
+## 1:10 to 2:00 | Explore the scene
+
+Press **3** for Earth. Point to the surface, clouds, atmosphere and Moon. Press **Space** to resume and pause. Press **6** to show Saturn's rings. Press **R** for overview, and point to the asteroid belt between Mars and Jupiter.
+
+> The Moon follows Earth's translation and has its own orbital frame. Rings use transparent geometry and analytic shadows. The asteroid belt reuses geometry and draws many objects with one instanced draw call.
+
+## 2:00 to 3:25 | Complete a Workshop challenge
+
+Open **Workshop**, select **Read the normals** in **Challenges**, and click **Start challenge**. While the world is shaded, open **Surface** and expand **Rotation** to stop **Animate world**, then expand **Lighting** and change **Azimuth** or **Elevation**. The terminator should move across the stationary world. Click **Check challenge** while still shaded to show feedback. Select **World normals**, then click **Check challenge** again. Show the completed mark and changed count.
+
+> The Workshop challenge has a visible goal, progress, retry feedback, and a reset. The direction controls move the light relative to the planet. World normals encode direction in RGB, so moving the light cannot change these colors.
+
+## 3:25 to 4:25 | Edit an orbit and compare eclipses
+
+Open **Orbit Lab**, choose Mars, and click **Try elliptical orbit**. Point out the periapsis, apoapsis, and velocity markers. Resume briefly and pause again. Open **Eclipse Lab**, choose **Solar eclipse**, and compare **Total alignment** and **Partial alignment**.
+
+> The orbit uses Kepler's equation, so the planet moves faster near periapsis. Eclipse Lab estimates visible sunlight by comparing apparent disks. The displayed percentage samples the target's Sun-facing surface center.
+
+## 4:25 to 5:00 | Close and leave the graphic on screen
+
+Show where **Save...** and **Load...** preserve an experiment. Return to the Sun in Explore and restore the final composite with Bloom enabled. Show the measured 1280 × 720 Bloom on/off results in the report.
+
+> The application runs locally with C++17, OpenGL 3.3 Core, bundled libraries and GLSL files. Its geometry scales are illustrative. The report documents the shaders, data sources and measured performance.
+
+## Two minute question preparation
+
+Every teammate should be able to trace the code from the floating-point target in `Renderer.cpp`, through `fullscreen.vert` and `blur.frag`, to `composite.frag`. Be ready to explain why an LDR target would lose above-white values, why separable blur uses two axes, why the glow is added before tone mapping, and why World normals bypass the artistic display transform. Rehearse adjusting the extraction threshold and predicting the before/after image.
+
+For the other features, use `Planet.cpp` for the orbit solve, `WorkshopModel.cpp` and `workshop.frag` for the Workshop light, and `Missions.cpp` for the challenge conditions. See [Project explanation](PROJECT_EXPLANATION.md) for the equations and testable claims.
+
+## Sixty second backup video
+
+The guided tour runs the same renderer and challenge checks at fixed 30 FPS steps. It displays captions and does not require narration. Run the tour from a portable Release folder:
 
 ```powershell
-.\SolarSystemExplorer.exe --paused
+.\SolarSystemExplorer.exe --demo-tour --width 1280 --height 720
 ```
 
-Keep the README and `PROJECT_EXPLANATION.md` available for questions. Ready-made experiments are included in `examples/`: `elliptical-mars.sselab`, `solar-eclipse.sselab`, and `lunar-eclipse.sselab`. They can be opened through **Load...** if you want a rehearsed starting state.
+Add `--record-frames <empty-folder>` to record the actual rendered frames for encoding.
 
-## 0:00–0:35 — Introduce the system
+| Time | What appears in the recording |
+| --- | --- |
+| 00–04 s | Sun with Bloom enabled. |
+| 04–09 s | Bloom off, then on. |
+| 09–16 s | Split comparison with the left half off and right half on. |
+| 16–24 s | Scene without Bloom, extraction, blurred highlights, then final composite. |
+| 24–34 s | Earth, Saturn and the asteroid belt from overview. |
+| 34–54 s | Workshop challenge, changing the light on a paused world, World normals, and completion. |
+| 54–60 s | Explore with the team and topic card visible. |
 
-Show the overview. Drag briefly in empty space, then press **R**.
-
-> This is Solar System Explorer, our team's Computer Graphics Fundamentals project. It uses C++17 and OpenGL 3.3 Core. The default scene contains the Sun, eight planets, Earth's Moon, and Saturn's rings. All resources are local, so it runs offline.
-
-Point to **Explore**, **Orbit Lab**, and **Eclipse Lab**.
-
-> Explore presents the system. Orbit Lab lets us change motion and inspect the graphics. Eclipse Lab uses a separate scene to explain how bodies block sunlight. The scales are illustrative, not predictions of today's positions.
-
-## 0:35–1:15 — Explore lighting and hierarchy
-
-Press **3**, allow the camera transition to finish, and make a short drag. Point to Earth's surface, clouds, atmospheric rim, and Moon. Resume with **Space** briefly, then pause.
-
-> A point light at the Sun produces diffuse and specular illumination. Earth adds clouds, night lights, and an atmospheric rim. The Moon inherits Earth's translation but not its surface spin, which keeps its own orbit attached correctly.
-
-Press **6** and show Saturn's rings.
-
-> Saturn's rings use transparent geometry drawn after the opaque planet. The shaders calculate shadows between the rings and the planet.
-
-## 1:15–2:10 — Change an orbit
-
-Click **Orbit Lab**, select **Mars**, and choose **Try elliptical orbit** in the right panel's **Orbit** tab. The example starts paused at day zero in overview. Point to the ellipse and its markers. If necessary, scroll the right panel to see the overlays.
-
-> The semi-major axis controls size, eccentricity controls shape, and inclination tilts the orbital plane. Period and initial phase are editable too. Validation keeps the closest point outside the Sun.
-
-Resume, increase the main speed to about **20×**, and observe the trajectory. Pause again.
-
-> Kepler's equation makes motion faster near periapsis and slower near apoapsis. Green marks the closest point and orange the farthest. The arrow shows analytic velocity, with its length scaled for display. The recent trail is rebuilt from the current orbit.
-
-Enter **0** in **Simulation time** and press Enter.
-
-> Seeking a day also pauses the system. These are prescribed elliptical paths; changing size and period independently is useful for experiments, but it is not an N-body gravity simulation.
-
-## 2:10–2:50 — Inspect the graphics
-
-Press **F** to focus Mars. Open the **Graphics** tab. Switch to **Wireframe**, then **World normals**.
-
-> Wireframe reveals the actual indexed triangle mesh. World normals encodes the transformed X, Y, and Z components as color. The short lines show the surface normal directions used in lighting.
-
-Return to **Shaded**. Set **Diffuse** to zero, then restore it with **Reset lighting**. Briefly adjust **Specular** or **Ambient**.
-
-> The lighting terms can be changed independently. This makes the difference between ambient visibility, diffuse illumination, and specular highlights observable. Bloom and exposure are separate rendering controls.
-
-## 2:50–4:10 — Compare solar and lunar eclipses
-
-Open **Eclipse Lab**. Select **Solar eclipse**, **Shaded**, and **Total alignment**. Point first to the upper geometry view, then to the larger lower Earth detail. Turn on **Shadow cones** if needed.
-
-> Here the Moon blocks sunlight reaching Earth. The upper view explains the alignment; the lower view shows the target. Purple marks the umbra boundary, where sunlight is fully blocked, and amber marks the penumbra boundary, where it is partly blocked.
-
-Choose **Partial alignment**, then **Clear of shadow**. Point to the visible-sunlight percentage. Return to **Total alignment** and change inclination a little.
-
-> The percentage samples Earth's Sun-facing surface center. Other places can see a different amount of the Sun. Changing phase or inclination moves the shadow, which explains why alignment matters.
-
-Switch to **Lunar eclipse** and choose **Total alignment**. Compare **Partial alignment**, then toggle **Observer viewpoint** for the lower view. Briefly press **Animate**, then **Pause**.
-
-> In a lunar eclipse, Earth blocks sunlight reaching the Moon. This laboratory has its own angular animation speed. It estimates visible sunlight from apparent disk overlap on a consistent illustrative scale; it does not predict eclipse dates or atmospheric effects.
-
-## 4:10–5:00 — Save, restore, and close
-
-Click **Save...**, choose a location, and save a `.sselab` file. Change the alignment or click **Reset experiment**, then use **Load...** to reopen the saved file.
-
-> An experiment stores all eight orbits, time, selection, graphics controls, the active laboratory, and eclipse settings. Loading validates the complete file before changing the scene. It restores the selected target, but not the exact camera pose.
-
-Return to **Explore**. If a clean closing scene is wanted, click **Reset experiment**, which pauses the original system.
-
-> The code separates simulation mathematics, rendering, the interface, and persistence. Automated checks cover the original simulation, elliptical motion, save/load failures, eclipse geometry, and real OpenGL rendering. These laboratories bring transformations, shading, animation, and geometric reasoning together in one application.
-
-Leave the scene visible for questions. Press Escape only when the demonstration is over.
-
-## If the examiner asks for code
-
-Open `Planet.cpp` for Kepler's equation and analytic velocity, `SolarSystem.cpp` for validation and the Moon hierarchy, `LabUI.cpp` for the editors, and `Renderer.cpp` plus `debug_surface.frag` for graphics diagnostics. `EclipseModel.cpp` and `eclipse.frag` show sunlight occlusion; `ExperimentIO.cpp` shows staged validation and persistence. The detailed explanation and suggested answers are in `PROJECT_EXPLANATION.md`.
+Upload the backup to YouTube or Google Drive and verify that an instructor can open the link without requesting access. Add the verified link to the report.

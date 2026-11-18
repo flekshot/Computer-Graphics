@@ -85,6 +85,18 @@ glm::vec3 surfaceNormal(const glm::vec3& direction, const WorkshopSettings& sett
 }
 } // namespace
 
+glm::vec3 workshopLightDirection(const WorkshopSettings& settings) {
+    constexpr float azimuthLimit = WorkshopSettings::maxLightAzimuthDegrees;
+    constexpr float elevationLimit = WorkshopSettings::maxLightElevationDegrees;
+    if (!inRange(settings.lightAzimuthDegrees, -azimuthLimit, azimuthLimit) ||
+        !inRange(settings.lightElevationDegrees, -elevationLimit, elevationLimit))
+        throw std::invalid_argument("Workshop light angles outside supported limits");
+    const double azimuth = settings.lightAzimuthDegrees * (pi / 180.0);
+    const double elevation = settings.lightElevationDegrees * (pi / 180.0);
+    const double horizontal = std::cos(elevation);
+    return glm::vec3(horizontal * std::sin(azimuth), std::sin(elevation), horizontal * std::cos(azimuth));
+}
+
 float sampleWorkshopTerrain(const glm::vec3& unitDirection, const WorkshopSettings& settings) {
     validate(settings);
     // Double precision normalization also accepts tiny/large finite float vectors safely.

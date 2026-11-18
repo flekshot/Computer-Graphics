@@ -15,9 +15,11 @@
 #include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <random>
 #include <stdexcept>
 namespace sse {
 namespace {
+constexpr GLsizei asteroidCount = 640;
 constexpr size_t diagnosticCapacity = 2048;
 constexpr int ionParticles = 80, dustParticles = 110;
 constexpr size_t cometTailCapacity = ionParticles + dustParticles;
@@ -65,7 +67,8 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
       composite_(root / "shaders/fullscreen.vert", root / "shaders/composite.frag"),
       debugSurface_(root / "shaders/planet.vert", root / "shaders/debug_surface.frag"),
       debugLines_(root / "shaders/debug_lines.vert", root / "shaders/debug_lines.frag"),
-      cometTail_(root / "shaders/comet_tail.vert", root / "shaders/comet_tail.frag"), sphere_(makeSphere()),
+      cometTail_(root / "shaders/comet_tail.vert", root / "shaders/comet_tail.frag"),
+      asteroid_(root / "shaders/asteroid.vert", root / "shaders/asteroid.frag"), sphere_(makeSphere()),
       lowSphere_(makeSphere(16, 8)),
       annulus_(makeAnnulus(1.25f, 2.3f)), orbitMesh_(makeOrbit(), GL_LINE_LOOP),
       stars_(makeStars(), GL_POINTS),
@@ -85,6 +88,7 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
     for (const Texture* t : {&sunMap_, &moonMap_, &ringMap_, &nightMap_, &cloudMap_, &skyMap_})
         if (t->fallback())
             ++fallbackCount_;
+    initializeAsteroids();
     diagnosticVertices_.reserve(diagnosticCapacity);
     glBindVertexArray(diagnosticVao_.id());
     glBindBuffer(GL_ARRAY_BUFFER, diagnosticVbo_.id());
@@ -148,21 +152,60 @@ Renderer::Renderer(const std::filesystem::path& root, const SolarSystem& system,
     std::cout << "Scene initialized: 8 planets, Moon, Saturn rings, Bezier comet, 4500 stars; " << fallbackCount_
               << " texture fallbacks\n";
 }
+void Renderer::initializeAsteroids() {
+    auto rock = makeSphere(7, 4);
+    for (auto& vertex : rock.vertices) {
+        const auto p = vertex.position;
+        const float relief = 1.0f + .15f * std::sin(4 * p.x + 3 * p.z) * std::cos(5 * p.y);
+        vertex.position *= relief * glm::vec3(1.25f, .76f, .90f);
+    }
+    asteroidIndexCount_ = static_cast<GLsizei>(rock.indices.size());
+    glBindVertexArray(asteroidVao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, asteroidVertices_.id());
+    glBufferData(GL_ARRAY_BUFFER, rock.vertices.size() * sizeof(Vertex), rock.vertices.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, position)));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, asteroidIndices_.id());
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, rock.indices.size() * sizeof(uint32_t), rock.indices.data(), GL_STATIC_DRAW);
+    // Orbital radius, initial phase, inclination and rock size. One immutable buffer serves every frame.
+    std::mt19937 random(61391);
+    const auto unit = [&random]() { return static_cast<float>(random() >> 8) / 16777216.f; };
+    std::vector<glm::vec4> instances;
+    instances.reserve(asteroidCount);
+    for (int i = 0; i < asteroidCount; ++i) {
+        const float radius = 20.5f + 3.8f * unit();
+        const float phase = 6.2831853f * unit();
+        const float inclination = (unit() - .5f) * .095f;
+        const float size = .040f + .112f * std::pow(unit(), 3.f);
+        instances.push_back({radius, phase, inclination, size});
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, asteroidInstances_.id());
+    glBufferData(GL_ARRAY_BUFFER, instances.size() * sizeof(glm::vec4), instances.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
+    glVertexAttribDivisor(1, 1);
+    glBindVertexArray(0);
+}
 void Renderer::resize(int width, int height) {
     drawable_ = width > 0 && height > 0;
     if (!drawable_ || (width == width_ && height == height_))
         return;
     width_ = width;
     height_ = height;
-    bloomWidth_ = std::max(1, width / 2);
-    bloomHeight_ = std::max(1, height / 2);
+    allocateTargets();
+}
+void Renderer::allocateTargets() {
+    const int width = width_, height = height_;
+    const int divisor = quality_ == 0 ? 4 : 2;
+    bloomWidth_ = std::max(1, width / divisor);
+    bloomHeight_ = std::max(1, height / divisor);
     allocateColor(sceneColor_.id(), width, height);
     glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo_.id());
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneColor_.id(), 0);
     checkFramebuffer();
     GLint maxSamples = 1;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
-    const int samples = std::min(4, maxSamples);
+    const int samples = quality_ == 0 ? 0 : std::min(4, maxSamples);
     glBindFramebuffer(GL_FRAMEBUFFER, msaaFbo_.id());
     glBindRenderbuffer(GL_RENDERBUFFER, msaaColor_.id());
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA16F, width, height);
@@ -353,6 +396,11 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
                       int selected, float realTime, bool focusPresentation) {
     if (!drawable_)
         return;
+    const int quality = settings.quality == 0 ? 0 : 1;
+    if (quality != quality_) {
+        quality_ = quality;
+        allocateTargets();
+    }
     const RasterState rasterState;
     const bool shaded = settings.surfaceMode == SurfaceMode::Shaded;
     const bool wireframe = settings.surfaceMode == SurfaceMode::Wireframe;
@@ -491,6 +539,18 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
         }
         body.draw();
     }
+    if (settings.asteroids) {
+        asteroid_.use();
+        asteroid_.set("uVP", vp);
+        // Each orbit completes an integral number of turns in this common cycle.
+        // Reducing time in double precision preserves slow motion after a large seek.
+        asteroid_.set("uCycle", static_cast<float>(std::remainder(days, 60000.0) * (6.283185307179586 / 60000.0)));
+        asteroid_.set("uLighting", lighting);
+        asteroid_.set("uNormals", int(settings.surfaceMode == SurfaceMode::Normals));
+        asteroid_.set("uWireframe", int(wireframe));
+        glBindVertexArray(asteroidVao_.id());
+        glDrawElementsInstanced(GL_TRIANGLES, asteroidIndexCount_, GL_UNSIGNED_INT, nullptr, asteroidCount);
+    }
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     if (outline) {
         // Pass 2: draw a slightly enlarged copy in a flat HDR colour, but only where
@@ -613,18 +673,26 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sceneFbo_.id());
     glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     const bool normalColors = settings.surfaceMode == SurfaceMode::Normals;
-    const bool bloom = settings.bloom && !normalColors;
-    if (bloom) {
+    const int stage = normalColors ? 0 : settings.pipelineStage;
+    const bool bloom = !normalColors && stage == 0 && (settings.bloom || settings.bloomCompare);
+    if (bloom || stage == 2 || stage == 3) {
         blur_.use();
         blur_.set("uInput", 0);
         glActiveTexture(GL_TEXTURE0);
         glViewport(0, 0, bloomWidth_, bloomHeight_);
-        for (int pass = 0; pass < 10; ++pass) {
-            glBindFramebuffer(GL_FRAMEBUFFER, blurFbo_[pass % 2].id());
-            blur_.set("uHorizontal", int(pass % 2 == 0));
-            blur_.set("uExtract", int(pass == 0));
-            glBindTexture(GL_TEXTURE_2D, pass == 0 ? sceneColor_.id() : blurColor_[(pass - 1) % 2].id());
-            fullscreen();
+        glBindFramebuffer(GL_FRAMEBUFFER, blurFbo_[0].id());
+        glBindTexture(GL_TEXTURE_2D, sceneColor_.id());
+        blur_.set("uExtract", 1);
+        fullscreen();
+        if (stage != 2) {
+            blur_.set("uExtract", 0);
+            const int passes = quality_ == 0 ? 4 : 10;
+            for (int pass = 0; pass < passes; ++pass) {
+                glBindFramebuffer(GL_FRAMEBUFFER, blurFbo_[(pass + 1) % 2].id());
+                glBindTexture(GL_TEXTURE_2D, blurColor_[pass % 2].id());
+                blur_.set("uHorizontal", int(pass % 2 == 0));
+                fullscreen();
+            }
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -633,12 +701,14 @@ void Renderer::render(const SolarSystem& system, const Camera& camera, const Ren
     composite_.set("uScene", 0);
     composite_.set("uBloom", 1);
     composite_.set("uBloomEnabled", int(bloom));
+    composite_.set("uCompare", int(settings.bloomCompare));
+    composite_.set("uStage", stage);
     composite_.set("uNormalColors", int(normalColors));
     composite_.set("uExposure", settings.exposure);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sceneColor_.id());
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, blurColor_[1].id());
+    glBindTexture(GL_TEXTURE_2D, blurColor_[0].id());
     fullscreen();
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(0);

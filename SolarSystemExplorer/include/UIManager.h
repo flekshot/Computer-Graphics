@@ -30,9 +30,13 @@ class UIManager {
     void toggleHelp() { help_ = !help_; }
     bool panelsVisible() const { return !cleanView_; }
     bool helpVisible() const { return help_; }
+    bool projectVisible() const { return project_; }
+    void showProject(bool visible = true) { project_ = visible; }
+    void inspectionOverlay(const RenderSettings& settings, LabView view) const;
 
   private:
     void helpWindow();
+    void projectWindow();
     void orbitPanel(SolarSystem& system, RenderSettings& settings, int selected, UIActions& actions);
     void orbitEditor(SolarSystem& system, RenderSettings& settings, int selected, UIActions& actions);
     void eclipseControls(EclipseSettings& settings);
@@ -50,6 +54,7 @@ class UIManager {
     double labMessageUntil_ = 0;
     bool motion_ = true;
     bool cleanView_ = false, referenceFeeds_ = false;
+    bool project_ = false;
     float requestedScale_ = 1, activeScale_ = 1;
     float navigationPosition_ = 0;
     float reveal_ = 1;
