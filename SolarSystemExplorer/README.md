@@ -81,6 +81,19 @@ cmake --build build/gcc-release --parallel
 
 ## Laboratory guide
 
+### Compare planet sizes
+
+Open **View > Compare planet sizes**, or launch with `--compare-planets`.
+Choose any two planets to see their mean diameters at one shared physical scale.
+The separate textured OpenGL view uses orthographic projection, displays the B/A
+diameter ratio, and includes a kilometre scale bar. Rings are excluded.
+Use **Swap A / B**, the Earth/Jupiter and Earth/Mars presets, **Rotate**, **Wireframe**,
+and **Fit / reset**. Drag the canvas to rotate the surfaces, scroll for shared zoom,
+double-click to fit, and press Escape to close only the comparison window.
+Comparison controls are session-only and do not change saved `.sselab` experiments.
+At zoom values above 1, cropping is intentional; **Fit / reset** restores both planets.
+
+
 Choose **Explore**, **Orbit Lab**, **Eclipse Lab**, or **Workshop** in the top navigation. Explore and Orbit Lab share the same system and edits. Eclipse Lab has a separate illustrative Sun–Earth–Moon scene and its own animation; the main system's clock does not advance while that lab is active. At smaller window sizes, scroll the side panels to reach their remaining controls.
 
 ### Create a world in Planet Workshop

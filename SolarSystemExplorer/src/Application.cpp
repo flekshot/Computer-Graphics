@@ -138,6 +138,7 @@ int Application::run() {
     settings.bloomCompare = options_.compareBloom;
     if (options_.noAsteroids) settings.asteroids = false;
     ui.showProject(options_.teamCard);
+    ui.showComparison(options_.comparePlanets);
     if (lab.view == LabView::Orbit && options_.experiment.empty()) {
         if (selected < 0) {
             select(3);
@@ -178,7 +179,7 @@ int Application::run() {
         renderer.resize(width, height);
         // ImGui may dismiss an ordinary popup while starting the next frame.
         // Keep its ownership of this Escape press before that state disappears.
-        const bool escapeOwnedByUI = ui.helpVisible() || ui.projectVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
+        const bool escapeOwnedByUI = ui.comparisonVisible() || ui.helpVisible() || ui.projectVisible() || ImGui::GetIO().WantTextInput || ImGui::IsAnyItemActive() ||
             ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         ui.begin();
         float sceneRadius = 60;
@@ -242,7 +243,7 @@ int Application::run() {
             previous = glfwGetTime();
         }
         const auto& io = ImGui::GetIO();
-        if (!io.WantCaptureKeyboard && !ImGui::IsAnyItemActive()) {
+        if (!ui.comparisonVisible() && !io.WantCaptureKeyboard && !ImGui::IsAnyItemActive()) {
             if (lab.view == LabView::Explore || lab.view == LabView::Orbit) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F6, false)) {
                     settings.bloom = !settings.bloom;
@@ -303,12 +304,12 @@ int Application::run() {
             camera.pan(right, forward, dt);
             }
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.WantTextInput)
+        if (!ui.comparisonVisible() && ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.WantTextInput)
             ui.toggleHelp();
         if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !escapeOwnedByUI &&
             !io.WantCaptureKeyboard && !ImGui::IsAnyItemActive())
             glfwSetWindowShouldClose(window_, GLFW_TRUE);
-        if (!io.WantCaptureMouse && lab.view != LabView::Eclipse) {
+        if (!ui.comparisonVisible() && !io.WantCaptureMouse && lab.view != LabView::Eclipse) {
             auto& activeCamera = lab.view == LabView::Workshop ? workshopCamera : camera;
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2))
                 activeCamera.orbit(io.MouseDelta.x, io.MouseDelta.y);
