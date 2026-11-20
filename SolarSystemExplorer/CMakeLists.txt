@@ -34,7 +34,7 @@ target_link_libraries(sse_core PUBLIC glm)
 add_executable(SolarSystemExplorer src/main.cpp src/Application.cpp src/Shader.cpp src/Mesh.cpp src/Texture.cpp
     src/Renderer.cpp src/UIManager.cpp src/LabUI.cpp src/EclipseRenderer.cpp src/ExperimentDialogs.cpp
     src/WorkshopRenderer.cpp src/WorkshopUI.cpp src/UIEffects.cpp src/AnimatedTexture.cpp src/HudUI.cpp
-    src/LaboratoryTarget.cpp src/DemoTour.cpp)
+    src/LaboratoryTarget.cpp src/DemoTour.cpp src/PlanetComparison.cpp)
 target_include_directories(SolarSystemExplorer PRIVATE include)
 target_include_directories(SolarSystemExplorer SYSTEM PRIVATE third_party/stb)
 target_compile_definitions(SolarSystemExplorer PRIVATE
@@ -68,6 +68,11 @@ if(SSE_BUILD_TESTS)
     target_include_directories(SolarSystemExplorer PRIVATE tests)
     target_sources(SolarSystemExplorer PRIVATE tests/SmokeScenario.cpp tests/LabSmokeScenario.cpp
         tests/WorkshopSmokeScenario.cpp)
+    add_executable(ComparisonTests tests/ComparisonTests.cpp)
+    target_include_directories(ComparisonTests PRIVATE include)
+    add_test(NAME planet_comparison_math COMMAND ComparisonTests)
+    add_test(NAME planet_comparison_opengl COMMAND SolarSystemExplorer --compare-planets --frames 30 --hidden)
+    set_tests_properties(planet_comparison_opengl PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
     add_executable(CoreTests tests/CoreTests.cpp)
     target_link_libraries(CoreTests PRIVATE sse_core)
     add_test(NAME core_behaviors COMMAND CoreTests)

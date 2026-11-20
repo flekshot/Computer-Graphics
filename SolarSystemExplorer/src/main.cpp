@@ -36,6 +36,7 @@ void help() {
                  "  --compare-bloom     Show Bloom off/on with one camera\n"
                  "  --pipeline STAGE    final, scene, bright, or bloom\n"
                  "  --no-asteroids      Hide the instanced asteroid belt\n"
+                 "  --compare-planets   Open the real-size planet comparison window\n"
                  "  --team-card         Show the project and team information\n"
                  "  --demo-tour         Run the 60-second guided tour at fixed 30 FPS steps\n"
                  "  --record-frames DIR Save each rendered frame as JPEG (30 FPS timeline)\n"
@@ -198,6 +199,7 @@ int explorerMain(int argc, char** argv) {
                 options.benchmark = true;
             else if (flag == "--compare-bloom") options.compareBloom = true;
             else if (flag == "--no-asteroids") options.noAsteroids = true;
+            else if (flag == "--compare-planets") options.comparePlanets = true;
             else if (flag == "--team-card") options.teamCard = true;
             else if (flag == "--demo-tour") options.demoTour = true;
 #ifdef SSE_WITH_TESTS
