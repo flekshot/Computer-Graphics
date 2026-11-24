@@ -9,6 +9,7 @@ struct GLFWwindow;
 struct ImFont;
 namespace sse {
 class AnimatedTexture;
+class PlanetComparison;
 struct UIActions {
     int select = -2;
     bool reset = false, refocus = false;
@@ -31,6 +32,8 @@ class UIManager {
     bool panelsVisible() const { return !cleanView_; }
     bool helpVisible() const { return help_; }
     bool projectVisible() const { return project_; }
+    void showComparison(bool visible = true) { comparisonOpen_ = visible; }
+    bool comparisonVisible() const { return comparisonOpen_; }
     void showProject(bool visible = true) { project_ = visible; }
     void inspectionOverlay(const RenderSettings& settings, LabView view) const;
 
@@ -55,6 +58,9 @@ class UIManager {
     bool motion_ = true;
     bool cleanView_ = false, referenceFeeds_ = false;
     bool project_ = false;
+    bool comparisonOpen_ = false;
+    std::filesystem::path comparisonRoot_;
+    std::unique_ptr<PlanetComparison> comparison_;
     float requestedScale_ = 1, activeScale_ = 1;
     float navigationPosition_ = 0;
     float reveal_ = 1;

@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "PlanetComparison.h"
 #include "UIEffects.h"
 #include "AnimatedTexture.h"
 #include <imgui.h>
@@ -88,7 +89,7 @@ ImU32 color(glm::vec3 c, int alpha) {
     return IM_COL32(int(c.r * 255), int(c.g * 255), int(c.b * 255), alpha);
 }
 } // namespace
-UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) {
+UIManager::UIManager(GLFWwindow* window, const std::filesystem::path& root) : comparisonRoot_(root) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     try {
@@ -355,6 +356,8 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
         ImGui::Combo("##render-quality", &settings.quality, "Low quality\0High quality\0");
         ImGui::MenuItem("Asteroid belt", nullptr, &settings.asteroids);
         ImGui::EndDisabled();
+        ImGui::Separator();
+        if (ImGui::MenuItem("Compare planet sizes")) comparisonOpen_ = true;
         ImGui::EndPopup();
     }
     ImGui::SameLine(size.x - 392);
@@ -601,6 +604,10 @@ UIActions UIManager::draw(SolarSystem& system, const Camera& camera, RenderSetti
     helpWindow();
     projectWindow();
     labMessage();
+    if (comparisonOpen_) {
+        if (!comparison_) comparison_ = std::make_unique<PlanetComparison>(comparisonRoot_);
+        comparison_->draw(system, comparisonOpen_);
+    }
     return actions;
 }
 void UIManager::helpWindow() {
@@ -684,6 +691,7 @@ void UIManager::projectWindow() {
     ImGui::End();
 }
 void UIManager::inspectionOverlay(const RenderSettings& settings, LabView view) const {
+    if (comparisonOpen_) return;
     if ((view != LabView::Explore && view != LabView::Orbit) || settings.surfaceMode == SurfaceMode::Normals)
         return;
     auto* dl = ImGui::GetForegroundDrawList();

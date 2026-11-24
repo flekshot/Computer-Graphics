@@ -14,6 +14,7 @@ struct Options {
     std::optional<SurfaceMode> surfaceMode;
     std::optional<ShadingModel> shading;
     bool orthographic = false, lowPoly = false, bezierControl = false, noComet = false;
+    bool comparePlanets = false;
     bool compareBloom = false, noAsteroids = false, teamCard = false, demoTour = false;
     std::optional<int> quality, pipelineStage;
     std::optional<bool> lunar, observer;
